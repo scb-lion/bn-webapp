@@ -104,6 +104,57 @@ async function seedAdmin() {
   }
 }
 
+// Seed a fully-populated demo customer so the /user/* UI can be exercised
+// locally. In-memory only — never runs against an external MONGODB_URI.
+async function seedDemoUser() {
+  const bcrypt = require('bcryptjs');
+  const { collections } = require(path.join(ROOT, 'api/_lib/db.js'));
+  const { users, transactions } = await collections();
+  const username = 'hussyderick';
+  if (await users.findOne({ username })) { console.log(`  demo user "${username}" already present`); return; }
+
+  const cents = (d) => Math.round(d * 100);
+  const dayOffset = (n) => { const d = new Date(); d.setDate(d.getDate() - n); d.setHours(9, (n * 7) % 60, 0, 0); return d; };
+  const CHECKING = { id: 'chk-4021', type: 'Checking', number: '4021', name: 'Everyday Checking' };
+  const SAVINGS = { id: 'sav-7788', type: 'Savings', number: '7788', name: 'Premier Savings' };
+  const moves = {
+    'chk-4021': [
+      [40, 'Direct Deposit — ACME CORP PAYROLL', 'ACME Corp', 2450.0],
+      [38, 'Rent Payment', 'Skyline Apartments', -1350.0],
+      [35, 'Grocery Purchase', 'Whole Foods Market', -86.32],
+      [33, 'Coffee', 'Starbucks', -6.75],
+      [30, 'Fuel', 'Shell', -47.8], [28, 'Streaming', 'Netflix', -15.49],
+      [25, 'Online Purchase', 'Amazon', -54.2], [22, 'Zelle Received', 'John Smith', 120.0],
+      [18, 'Restaurant', 'Chipotle', -22.35], [14, 'Phone Bill', 'Verizon Wireless', -55.0],
+      [10, 'Direct Deposit — ACME CORP PAYROLL', 'ACME Corp', 2450.0],
+      [6, 'ATM Withdrawal', 'ATM — Main St', -100.0], [3, 'Grocery Purchase', 'Kroger', -58.4],
+      [1, 'Fuel', 'Chevron', -46.6],
+    ],
+    'sav-7788': [
+      [40, 'Opening Deposit', '', 5000.0], [20, 'Transfer from Checking', 'Everyday Checking ••4021', 300.0],
+      [5, 'Interest Payment', '', 4.32],
+    ],
+  };
+  const build = (acct) => {
+    let bal = 0;
+    return moves[acct.id].slice().sort((a, b) => b[0] - a[0]).map(([n, description, counterparty, dollars]) => {
+      const amount = cents(dollars); bal += amount;
+      return { accountId: acct.id, ref: 'ref_' + Math.random().toString(36).slice(2, 12), date: dayOffset(n), description, counterparty, amount, type: amount >= 0 ? 'credit' : 'debit', balanceAfter: bal };
+    });
+  };
+  const chk = build(CHECKING), sav = build(SAVINGS);
+  const now = new Date();
+  const res = await users.insertOne({
+    username, email: 'hussy.derick@gmail.com', passwordHash: await bcrypt.hash('anonymous123$', 10),
+    role: 'user', active: true,
+    profile: { firstName: 'Hussy', displayName: 'Hussy Derick', photoUrl: '', phone: '+1 (704) 555-0192', address: '284 Maple Grove Ave, Charlotte, NC 28202' },
+    accounts: [{ ...CHECKING, balance: chk[chk.length - 1].balanceAfter }, { ...SAVINGS, balance: sav[sav.length - 1].balanceAfter }],
+    createdAt: now, updatedAt: now,
+  });
+  await transactions.insertMany([...chk, ...sav].map((t) => ({ ...t, userId: res.insertedId })));
+  console.log(`  seeded demo user  ->  username: ${username}  password: anonymous123$`);
+}
+
 async function main() {
   let memory;
   if (!process.env.MONGODB_URI) {
@@ -117,6 +168,7 @@ async function main() {
   if (!process.env.JWT_SECRET) process.env.JWT_SECRET = 'dev-secret-not-for-production';
 
   await seedAdmin();
+  if (memory) await seedDemoUser(); // only for the zero-config in-memory harness
 
   const server = http.createServer((req, res) => {
     const parsed = url.parse(req.url, true);

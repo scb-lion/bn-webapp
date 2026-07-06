@@ -25,36 +25,39 @@
 
             <div class="header header-logo-app">
                 <a href="#" data-menu="menu-main" class="header-icon header-icon-1 color-white"><i class="fas fa-bars"></i></a>
+                <a href="/user/profile" id="dash-avatar" class="avatar-btn skel skel-avatar" aria-label="My profile"></a>
             </div>
 
-            <div class="page-title page-title-large" style="position:relative;">
-                <h2 class="color-white" id="dash-hi"><span class="skel skel-line" style="display:inline-block;width:150px;height:22px;vertical-align:middle;"></span></h2>
-                <a href="#" data-menu="menu-main" id="dash-avatar" class="skel skel-avatar shadow-xl" style="position:absolute;right:16px;top:2px;"></a>
+            <div class="page-title page-title-large">
+                <h2 class="color-white" id="dash-hi"><span class="skel skel-line" style="display:inline-block;width:130px;height:20px;vertical-align:middle;"></span></h2>
+                <div class="hero-balance">
+                    <div class="hb-label">Total available balance</div>
+                    <div class="hb-amount" id="dash-total"><span class="skel skel-line" style="display:inline-block;width:170px;height:28px;"></span></div>
+                </div>
             </div>
 
-            <div class="card header-card" data-card-height="450" style="height: 450px;">
+            <div class="card header-card" data-card-height="460" style="height: 460px;">
                 <div class="card-overlay bg-highlight opacity-95"></div>
                 <div class="card-overlay dark-mode-tint"></div>
                 <div class="card-bg"></div>
             </div>
 
-            <div class="mx-3 mb-2">
-                <div class="content mb-2">
-                    <h6 class="float-start font-12 color-white" style="font-weight: 500 !important;">Accounts</h6>
-                    <a class="float-end font-12 color-white mt-n1" href="/user/accounts"><i class="fa-solid fa-ellipsis"></i></a>
-                    <div class="clearfix"></div>
+            <div class="mx-3 mb-3">
+                <div class="sec-head">
+                    <span class="sec-title color-white">Accounts</span>
+                    <a class="sec-link color-white" href="/user/accounts">See all</a>
                 </div>
-                <div id="dash-accounts" style="overflow-x:auto;white-space:nowrap;padding-bottom:6px;">
-                    <div class="card card-style d-inline-block me-2" style="width:290px;white-space:normal;vertical-align:top;"><div class="content">
-                        <div class="skel skel-line" style="width:50%;"></div>
-                        <div class="skel skel-line" style="width:30%;height:9px;margin-top:8px;"></div>
-                        <div class="skel skel-line" style="width:65%;height:20px;margin-top:16px;"></div>
-                    </div></div>
-                    <div class="card card-style d-inline-block me-2" style="width:290px;white-space:normal;vertical-align:top;"><div class="content">
-                        <div class="skel skel-line" style="width:50%;"></div>
-                        <div class="skel skel-line" style="width:30%;height:9px;margin-top:8px;"></div>
-                        <div class="skel skel-line" style="width:65%;height:20px;margin-top:16px;"></div>
-                    </div></div>
+                <div id="dash-accounts" class="acct-scroller">
+                    <div class="acct-card acct-skel">
+                        <div class="skel skel-line" style="width:35%;height:10px;"></div>
+                        <div class="skel skel-line" style="width:62%;height:22px;margin:14px 0 8px;"></div>
+                        <div class="skel skel-line" style="width:48%;height:10px;"></div>
+                    </div>
+                    <div class="acct-card acct-skel">
+                        <div class="skel skel-line" style="width:35%;height:10px;"></div>
+                        <div class="skel skel-line" style="width:62%;height:22px;margin:14px 0 8px;"></div>
+                        <div class="skel skel-line" style="width:48%;height:10px;"></div>
+                    </div>
                 </div>
             </div>
 
@@ -91,17 +94,15 @@
 
             <div class="card card-style">
                 <div class="content">
-                    <h6 class="float-start font-14" style="font-weight: 500 !important;">Transactions</h6>
-                    <a class="float-end font-14 color-black mt-n1" href="/user/transactions"><i class="fa-solid fa-ellipsis"></i></a>
-                    <div class="clearfix mb-3"></div>
-                    <div id="dash-txns">
-                        <div class="d-flex py-1"><div class="ps-3" style="flex:1;"><div class="skel skel-line" style="width:60%;"></div><div class="skel skel-line" style="width:35%;height:9px;margin-top:8px;"></div></div><div class="ms-auto align-self-center"><div class="skel skel-line" style="width:80px;"></div></div></div>
-                        <div class="divider mt-3 mb-3"></div>
-                        <div class="d-flex py-1"><div class="ps-3" style="flex:1;"><div class="skel skel-line" style="width:70%;"></div><div class="skel skel-line" style="width:30%;height:9px;margin-top:8px;"></div></div><div class="ms-auto align-self-center"><div class="skel skel-line" style="width:80px;"></div></div></div>
-                        <div class="divider mt-3 mb-3"></div>
-                        <div class="d-flex py-1"><div class="ps-3" style="flex:1;"><div class="skel skel-line" style="width:55%;"></div><div class="skel skel-line" style="width:40%;height:9px;margin-top:8px;"></div></div><div class="ms-auto align-self-center"><div class="skel skel-line" style="width:80px;"></div></div></div>
-                        <div class="divider mt-3 mb-3"></div>
-                        <div class="d-flex py-1"><div class="ps-3" style="flex:1;"><div class="skel skel-line" style="width:65%;"></div><div class="skel skel-line" style="width:33%;height:9px;margin-top:8px;"></div></div><div class="ms-auto align-self-center"><div class="skel skel-line" style="width:80px;"></div></div></div>
+                    <div class="sec-head">
+                        <span class="sec-title" style="color:#13120f;">Recent activity</span>
+                        <a class="sec-link" style="color:#007a3a;" href="/user/transactions">See all</a>
+                    </div>
+                    <div id="dash-txns" class="txn-list">
+                        <div class="txn-row"><div class="d-flex align-items-center"><div class="skel skel-ic"></div><div class="ps-2" style="flex:1;"><div class="skel skel-line" style="width:55%;"></div><div class="skel skel-line" style="width:30%;height:9px;margin-top:7px;"></div></div><div class="ms-auto"><div class="skel skel-line" style="width:70px;"></div></div></div></div>
+                        <div class="txn-row"><div class="d-flex align-items-center"><div class="skel skel-ic"></div><div class="ps-2" style="flex:1;"><div class="skel skel-line" style="width:65%;"></div><div class="skel skel-line" style="width:28%;height:9px;margin-top:7px;"></div></div><div class="ms-auto"><div class="skel skel-line" style="width:70px;"></div></div></div></div>
+                        <div class="txn-row"><div class="d-flex align-items-center"><div class="skel skel-ic"></div><div class="ps-2" style="flex:1;"><div class="skel skel-line" style="width:50%;"></div><div class="skel skel-line" style="width:34%;height:9px;margin-top:7px;"></div></div><div class="ms-auto"><div class="skel skel-line" style="width:70px;"></div></div></div></div>
+                        <div class="txn-row"><div class="d-flex align-items-center"><div class="skel skel-ic"></div><div class="ps-2" style="flex:1;"><div class="skel skel-line" style="width:60%;"></div><div class="skel skel-line" style="width:30%;height:9px;margin-top:7px;"></div></div><div class="ms-auto"><div class="skel skel-line" style="width:70px;"></div></div></div></div>
                     </div>
                 </div>
             </div>

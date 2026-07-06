@@ -33,6 +33,62 @@
       hour: 'numeric', minute: '2-digit',
     });
   }
+  function fmtDateShort(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d)) return '';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · ' +
+      d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+  function emptyState(msg, icon) {
+    return '<div class="text-center py-4"><i class="fa-solid ' + (icon || 'fa-receipt') +
+      '" style="font-size:26px;color:#b9c1bd;"></i>' +
+      '<p class="color-theme font-12 mt-2 mb-0">' + esc(msg) + '</p></div>';
+  }
+  function acctKind(a) { return /sav/i.test(a.type || '') ? 'save' : 'check'; }
+  // Pick a category icon + colour from a transaction's text.
+  function txnIcon(t) {
+    var s = ((t.description || '') + ' ' + (t.counterparty || '')).toLowerCase();
+    var map = [
+      [/payroll|direct deposit|opening deposit|deposit/, 'fa-arrow-down-long', '#e6f4ea', '#1a7f37'],
+      [/interest/, 'fa-percent', '#e6f4ea', '#1a7f37'],
+      [/zelle|transfer/, 'fa-right-left', '#eef1fb', '#3b5bdb'],
+      [/rent|apartment|mortgage/, 'fa-house', '#fdeef0', '#c0392b'],
+      [/grocery|market|whole foods|trader|kroger|aldi|food/, 'fa-cart-shopping', '#fef4e6', '#c47f17'],
+      [/coffee|starbucks|restaurant|panera|chipotle|olive garden|dining/, 'fa-mug-hot', '#fbeee6', '#b5651d'],
+      [/fuel|shell|chevron|gas/, 'fa-gas-pump', '#eef6f2', '#0b8a45'],
+      [/netflix|spotify|streaming|hulu|disney/, 'fa-play', '#f3ebfb', '#7b3fe4'],
+      [/electric|energy|internet|spectrum|water|utility|phone|verizon|bill/, 'fa-bolt', '#fff7e0', '#b8860b'],
+      [/amazon|online|purchase|store/, 'fa-bag-shopping', '#eef1fb', '#3b5bdb'],
+      [/atm|withdrawal/, 'fa-money-bill-wave', '#f0f2f1', '#5a6560'],
+      [/gym|fitness/, 'fa-dumbbell', '#eef1fb', '#3b5bdb'],
+      [/pharmacy|cvs|walgreens|health/, 'fa-prescription-bottle-medical', '#fdeef0', '#c0392b'],
+      [/uber|lyft|ride|transit/, 'fa-car', '#f0f2f1', '#5a6560'],
+    ];
+    for (var i = 0; i < map.length; i++) if (map[i][0].test(s)) return { icon: map[i][1], bg: map[i][2], fg: map[i][3] };
+    return (Number(t.amount) || 0) >= 0
+      ? { icon: 'fa-arrow-down-long', bg: '#e6f4ea', fg: '#1a7f37' }
+      : { icon: 'fa-arrow-up-long', bg: '#f0f2f1', fg: '#5a6560' };
+  }
+  // Group a date-desc list into day buckets with human labels.
+  function dayKey(d) { return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); }
+  function groupLabel(iso) {
+    var d = new Date(iso); if (isNaN(d)) return '';
+    var now = new Date(), y = new Date(); y.setDate(y.getDate() - 1);
+    if (dayKey(d) === dayKey(now)) return 'Today';
+    if (dayKey(d) === dayKey(y)) return 'Yesterday';
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  function txnHistory(list) {
+    if (!list || !list.length) return emptyState('No transactions yet');
+    var out = '<div class="txn-list">', last = null;
+    list.forEach(function (t) {
+      var lbl = groupLabel(t.date);
+      if (lbl !== last) { out += '<div class="txn-group-label">' + esc(lbl) + '</div>'; last = lbl; }
+      out += txnRow(t);
+    });
+    return out + '</div>';
+  }
   function q(sel, root) { return (root || document).querySelector(sel); }
   function qa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
   function api(url, opts) {
@@ -122,90 +178,72 @@
   /* ---------- row + card builders ---------- */
   function txnRow(t) {
     var s = signed(t.amount);
+    var ic = txnIcon(t);
     return (
-      '<a href="/user/transaction/detail?id=' + encodeURIComponent(t.id) + '">' +
-        '<div class="d-flex">' +
-          '<div class="align-self-center ps-3">' +
-            '<h5 class="font-500 font-14 mb-n2" style="font-weight:500!important;color:#13120f!important;">' + esc(t.description) + '</h5>' +
-            '<span class="color-theme font-11" style="font-weight:500!important;color:#727272!important;">' + esc(fmtDate(t.date)) + '</span>' +
+      '<a href="/user/transaction/detail?id=' + encodeURIComponent(t.id) + '" class="txn-row">' +
+        '<div class="d-flex align-items-center">' +
+          '<div class="txn-ic" style="background:' + ic.bg + ';color:' + ic.fg + ';"><i class="fa-solid ' + ic.icon + '"></i></div>' +
+          '<div class="ps-2" style="min-width:0;flex:1;">' +
+            '<h5 class="txn-desc">' + esc(t.description) + '</h5>' +
+            '<span class="txn-date">' + esc(fmtDateShort(t.date)) + '</span>' +
           '</div>' +
-          '<div class="align-self-center ms-auto">' +
-            '<h5 class="mb-n1 text-end font-14" style="font-weight:600!important;color:' + s.color + '!important;">' + s.text + '</h5>' +
+          '<div class="ms-auto ps-2 text-end">' +
+            '<h5 class="txn-amt" style="color:' + s.color + ';">' + s.text + '</h5>' +
+            (t.balanceAfter != null ? '<span class="txn-bal">$' + money(t.balanceAfter) + '</span>' : '') +
           '</div>' +
         '</div>' +
-      '</a><div class="divider mt-3 mb-3"></div>'
+      '</a>'
     );
   }
-  function accountRow(a) {
+  // Full-width account card (accounts list page) — same look as the dashboard carousel.
+  function accountCard(a) {
+    var masked = '•••• ' + String(a.number || '').slice(-4);
     return (
-      '<a href="/user/account?num=' + encodeURIComponent(a.number) + '">' +
-        '<div class="content">' +
-          '<div class="d-flex">' +
-            '<div class="align-self-center">' +
-              '<h5 class="font-500 font-14 mb-n2">' + esc(a.name || a.type) + '</h5>' +
-              '<span class="color-theme font-11">x' + esc(a.number) + '</span>' +
-            '</div>' +
-            '<div class="align-self-center ms-auto">' +
-              '<h6 class="color-theme mb-n1 text-end font-600 font-14">$' + money(a.balance) + '</h6>' +
-              '<span class="color-theme d-block font-11 text-end">Available</span>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-      '</a><div class="divider mt-3 mb-3"></div>'
+      '<a href="/user/account?num=' + encodeURIComponent(a.number) + '" class="acct-card acct-' + acctKind(a) + '">' +
+        '<div class="ac-top"><span>' + esc(a.type) + '</span><i class="fa-solid fa-building-columns"></i></div>' +
+        '<div><div class="ac-bal">$' + money(a.balance) + '</div>' +
+        '<div class="ac-sub"><span>' + esc(a.name || a.type) + '</span><span class="ac-num">' + esc(masked) + '</span></div></div>' +
+      '</a>'
     );
   }
 
   /* ---------- dashboard (fill the skeleton slots in dashboard.html) ---------- */
-  function dashAccountCard(a) {
-    return (
-      '<div class="card card-style d-inline-block me-2" style="width:290px;white-space:normal;vertical-align:top;">' +
-        '<a href="/user/account?num=' + encodeURIComponent(a.number) + '"><div class="content">' +
-          '<div class="d-flex"><div class="align-self-center">' +
-            '<h5 class="font-600 font-14 mb-n2">' + esc(a.name || a.type) + '</h5>' +
-            '<span class="color-theme font-11">x' + esc(a.number) + '</span>' +
-          '</div><div class="align-self-center ms-auto">' +
-            '<h5 class="color-theme mb-n1 text-end">$' + money(a.balance) + '</h5>' +
-            '<span class="color-theme d-block font-11 text-end">Available</span>' +
-          '</div></div>' +
-        '</div></a>' +
-      '</div>'
-    );
-  }
   function renderDashboard(me, txns) {
     var name = me.profile.firstName || me.profile.displayName || me.username;
     var hi = document.getElementById('dash-hi');
     if (hi) hi.textContent = 'Hi, ' + name;
 
+    var total = (me.accounts || []).reduce(function (sum, a) { return sum + (Number(a.balance) || 0); }, 0);
+    var totalEl = document.getElementById('dash-total');
+    if (totalEl) totalEl.textContent = '$' + money(total);
+
     var avatar = document.getElementById('dash-avatar');
     if (avatar) {
-      var url = me.profile.photoUrl || DEFAULT_AVATAR;
       avatar.classList.remove('skel');
-      avatar.style.backgroundImage = "url('" + url + "')";
+      avatar.style.backgroundImage = "url('" + (me.profile.photoUrl || DEFAULT_AVATAR) + "')";
     }
 
     var accEl = document.getElementById('dash-accounts');
     if (accEl) {
       accEl.innerHTML = me.accounts.length
-        ? me.accounts.map(dashAccountCard).join('')
-        : '<div class="card card-style d-inline-block" style="width:290px;"><div class="content color-theme font-12">No accounts yet.</div></div>';
+        ? me.accounts.map(accountCard).join('')
+        : '<div class="acct-card acct-check" style="justify-content:center;align-items:center;font-size:13px;">No accounts yet</div>';
     }
 
     var txEl = document.getElementById('dash-txns');
     if (txEl) {
       txEl.innerHTML = (txns && txns.length)
-        ? txns.slice(0, 5).map(txnRow).join('')
-        : '<p class="text-center color-theme font-12 py-3">No transactions yet.</p>';
+        ? txns.slice(0, 6).map(txnRow).join('')
+        : emptyState('No transactions yet');
     }
   }
 
   /* ---------- accounts list page ---------- */
   function renderAccounts(me) {
-    var rows = me.accounts.map(accountRow).join('') || '<p class="text-center color-theme py-3">No accounts.</p>';
-    setContent(shell('Accounts',
-      '<div class="card card-style"><div class="content">' +
-        '<h6 class="float-start font-14" style="font-weight:500!important;">Your accounts</h6><div class="clearfix mb-3"></div>' +
-        rows +
-      '</div></div>'));
+    var inner = me.accounts.length
+      ? '<div class="acct-stack">' + me.accounts.map(accountCard).join('') + '</div>'
+      : '<div class="card card-style"><div class="content">' + emptyState('No accounts', 'fa-wallet') + '</div></div>';
+    setContent(shell('Accounts', inner));
   }
 
   /* ---------- single account page (?num=) ---------- */
@@ -216,15 +254,15 @@
     if (!acct) { setContent(shell('Account', '<div class="card card-style"><div class="content">Account not found.</div></div>')); return; }
     var res = await api('/api/transactions?accountId=' + encodeURIComponent(acct.id));
     var data = res.ok ? await res.json() : { transactions: [] };
-    var rows = (data.transactions || []).map(txnRow).join('') || '<p class="text-center color-theme py-3">No transactions.</p>';
+    var masked = '•••• ' + String(acct.number || '').slice(-4);
     setContent(shell(acct.name || 'Account',
-      '<div class="card card-style"><div class="content text-center">' +
-        '<span class="color-theme font-12 d-block">' + esc(acct.type) + ' ·  x' + esc(acct.number) + '</span>' +
-        '<h1 class="font-800 mt-2 mb-0">$' + money(acct.balance) + '</h1>' +
-        '<span class="color-theme font-12">Available balance</span>' +
+      '<div class="acct-stack"><div class="acct-card acct-' + acctKind(acct) + '" style="min-height:132px;">' +
+        '<div class="ac-top"><span>' + esc(acct.type) + '</span><i class="fa-solid fa-building-columns"></i></div>' +
+        '<div><div class="ac-bal" style="font-size:30px;">$' + money(acct.balance) + '</div>' +
+        '<div class="ac-sub"><span>Available balance</span><span class="ac-num">' + esc(masked) + '</span></div></div>' +
       '</div></div>' +
       '<div class="card card-style"><div class="content">' +
-        '<h6 class="float-start font-14" style="font-weight:500!important;">Transactions</h6><div class="clearfix mb-3"></div>' + rows +
+        '<h6 class="font-14 mb-3" style="font-weight:600!important;">Transactions</h6>' + txnHistory(data.transactions) +
       '</div></div>'));
   }
 
@@ -232,9 +270,8 @@
   async function renderTransactions() {
     var res = await api('/api/transactions');
     var data = res.ok ? await res.json() : { transactions: [] };
-    var rows = (data.transactions || []).map(txnRow).join('') || '<p class="text-center color-theme py-3">No transactions yet.</p>';
     setContent(shell('Transactions',
-      '<div class="card card-style"><div class="content">' + rows + '</div></div>'));
+      '<div class="card card-style"><div class="content">' + txnHistory(data.transactions) + '</div></div>'));
   }
 
   /* ---------- single transaction page (?id=) ---------- */
