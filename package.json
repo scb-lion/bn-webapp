@@ -1,0 +1,21 @@
+{
+  "name": "alliance-federal-credit-union",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Alliance Federal Credit Union — fictional demo banking app with auth + admin (Vercel + MongoDB)",
+  "type": "commonjs",
+  "scripts": {
+    "seed": "node scripts/seed.js",
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie": "^0.6.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.10.0"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.5",
+    "mongodb-memory-server": "^11.2.0"
+  }
+}

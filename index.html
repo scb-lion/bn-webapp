@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alliance Federal Credit Union</title>
+  <script>
+    // Route to the right place based on session.
+    (async function () {
+      try {
+        var res = await fetch('/api/me', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        if (res.ok) {
+          var data = await res.json();
+          location.replace(data.user && data.user.role === 'admin' ? '/admin' : '/user/dashboard');
+          return;
+        }
+      } catch (e) {}
+      location.replace('/login');
+    })();
+  </script>
+</head>
+<body></body>
+</html>

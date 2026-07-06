@@ -1,0 +1,11 @@
+_source/
+logs/
+console/
+network/
+screenshots/
+_mirror-logs/
+.crawl-state.json
+.auth/
+api_endpoints.json
+page_inventory.json
+sitemap.json

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/user/account/checking/:num", "destination": "/user/account?num=:num" },
+    { "source": "/user/transaction/detail/:id/:ref", "destination": "/user/transaction/detail?id=:id" }
+  ]
+}

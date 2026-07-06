@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en" class="isPWA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f6b3b">
+  <title>Sign in | Alliance Federal Credit Union</title>
+  <link rel="stylesheet" type="text/css" href="/assets/app/css/bootstrap.css">
+  <link rel="stylesheet" type="text/css" href="/assets/app/css/style.css">
+  <link rel="apple-touch-icon" href="/assets/img/logo.png">
+  <link href="https://cdn.jsdelivr.net/gh/hung1001/font-awesome-pro@4cac1a6/css/all.css" rel="stylesheet">
+  <link rel="preconnect" href="https://rsms.me/">
+  <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+  <style>
+    body { background: #f4f6f5; font-family: "InterVariable", "Inter", "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif; font-size: 14px; line-height: 20px; font-feature-settings: "liga" 1, "calt" 1; -webkit-font-smoothing: antialiased; }
+    .auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .auth-card { width: 100%; max-width: 400px; background: #fff; border-radius: 18px; box-shadow: 0 12px 40px rgba(0,0,0,.08); padding: 28px 24px; }
+    .auth-logo { display: block; margin: 4px auto 6px; height: 56px; }
+    .auth-sub { text-align: center; color: #6b7772; font-size: 13px; margin-bottom: 22px; }
+    .fld { margin-bottom: 14px; }
+    .fld label { display: block; font-size: 12px; font-weight: 600; color: #384540; margin-bottom: 6px; }
+    .fld input { width: 100%; padding: 12px 14px; border: 1px solid #dbe2df; border-radius: 12px; font-size: 16px; line-height: 22px; outline: none; }
+    .fld input:focus { border-color: #0f6b3b; box-shadow: 0 0 0 3px rgba(15,107,59,.12); }
+    .btn-signin { width: 100%; border: 0; padding: 13px; border-radius: 12px; background: #0f6b3b; color: #fff; font-weight: 650; font-size: 15px; line-height: 20px; cursor: pointer; }
+    .btn-signin:disabled { opacity: .6; cursor: default; }
+    .auth-error { display: none; background: #fdecea; color: #b3271e; border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 14px; }
+    .auth-note { text-align: center; color: #9aa5a0; font-size: 11px; margin-top: 18px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="auth-wrap">
+    <form class="auth-card" id="login-form" autocomplete="on">
+      <img src="/assets/img/logo.png" alt="Alliance Federal Credit Union" class="auth-logo">
+      <p class="auth-sub">Sign in to your account</p>
+      <div class="auth-error" id="auth-error"></div>
+      <div class="fld">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+      </div>
+      <div class="fld">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button class="btn-signin" id="submit-btn" type="submit">Sign in</button>
+      <p class="auth-note">Alliance Federal Credit Union is a fictional demo application.<br>Not a real bank and not affiliated with any institution.</p>
+    </form>
+  </div>
+  <script>
+    (function () {
+      var form = document.getElementById('login-form');
+      var errBox = document.getElementById('auth-error');
+      var btn = document.getElementById('submit-btn');
+      function nextUrl() {
+        var p = new URLSearchParams(location.search).get('next');
+        return p && p.indexOf('/') === 0 ? p : null;
+      }
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        errBox.style.display = 'none';
+        btn.disabled = true; btn.textContent = 'Signing in…';
+        try {
+          var res = await fetch('/api/auth/login', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: document.getElementById('username').value,
+              password: document.getElementById('password').value,
+            }),
+          });
+          var data = await res.json().catch(function () { return {}; });
+          if (!res.ok) throw new Error(data.error || 'Sign in failed');
+          location.href = nextUrl() || data.redirect || '/user/dashboard';
+        } catch (err) {
+          errBox.textContent = err.message || 'Sign in failed';
+          errBox.style.display = 'block';
+          btn.disabled = false; btn.textContent = 'Sign in';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

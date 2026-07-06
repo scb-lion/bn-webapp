@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.local
+.env*.local
+.vercel
+
+# Crawl artifacts (not part of the deployed app)
+_mirror-logs/
+logs/
+console/
+network/
+screenshots/
+.crawl-state.json
+.auth/
+*.log
+.DS_Store
+.playwright-mcp/
