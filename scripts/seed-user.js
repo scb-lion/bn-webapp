@@ -19,7 +19,7 @@ const PASSWORD = String(process.env.SEED_USER_PASSWORD || 'anonymous123$');
 const PROFILE = {
   firstName: 'Hussy',
   displayName: 'Hussy Derick',
-  photoUrl: '/assets/img/dp/Angeline1782480359.jpeg',
+  photoUrl: '',
   phone: '+1 (704) 555-0192',
   address: '284 Maple Grove Ave, Charlotte, NC 28202',
 };

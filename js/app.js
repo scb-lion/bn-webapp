@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  var DEFAULT_AVATAR = '/assets/img/dp/Angeline1782480359.jpeg';
+  var DEFAULT_AVATAR = '/assets/img/default-avatar.png';
 
   /* ---------- helpers ---------- */
   function esc(s) {
@@ -269,7 +269,7 @@
       return '<div class="d-flex py-2"><div class="color-theme font-13">' + esc(label) + '</div>' +
         '<div class="ms-auto font-600 font-13 text-end">' + esc(val || '—') + '</div></div><div class="divider"></div>';
     }
-    var url = me.profile.photoUrl || '/assets/img/dp/Angeline1782480359.jpeg';
+    var url = me.profile.photoUrl || DEFAULT_AVATAR;
     setContent(shell('My Profile',
       '<div class="card card-style"><div class="content text-center">' +
         '<div class="mx-auto mb-2" style="width:90px;height:90px;border-radius:50%;background:#e6f2ea center/cover no-repeat;background-image:url(\'' + url + '\');"></div>' +

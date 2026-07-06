@@ -4,6 +4,7 @@
   'use strict';
 
   var state = { users: [], selectedId: null };
+  var DEFAULT_AVATAR = '/assets/img/default-avatar.png';
 
   /* ---------- helpers ---------- */
   function el(id) { return document.getElementById(id); }
@@ -108,6 +109,7 @@
         selectField('n-role', 'Role', [['user', 'User'], ['admin', 'Admin']]) +
       '</div>' +
       field('n-address', 'Address', 'text') +
+      avatarField('n', '') +
       '<div class="section-title">Accounts</div>' +
       '<div id="n-accounts">' + acctRowHTML() + '</div>' +
       '<button type="button" class="btn btn-light" id="n-add-acct">+ Add account</button>' +
@@ -117,6 +119,7 @@
 
     var accts = el('n-accounts');
     wireAcctRemovers(accts);
+    wireAvatar('n');
     el('n-add-acct').addEventListener('click', function () {
       accts.insertAdjacentHTML('beforeend', acctRowHTML());
       wireAcctRemovers(accts);
@@ -136,6 +139,7 @@
         email: el('n-email').value.trim(),
         phone: el('n-phone').value.trim(),
         address: el('n-address').value.trim(),
+        photoUrl: el('n-photoUrl').value.trim(),
         role: el('n-role').value,
         accounts: collectAccounts(el('n-accounts')),
       };
@@ -172,9 +176,9 @@
       '</div>' +
       '<div class="grid2">' +
         field('e-phone', 'Phone', 'text', u.profile.phone) +
-        field('e-photoUrl', 'Photo URL', 'text', u.profile.photoUrl) +
+        field('e-address', 'Address', 'text', u.profile.address) +
       '</div>' +
-      field('e-address', 'Address', 'text', u.profile.address) +
+      avatarField('e', u.profile.photoUrl) +
       '<div class="grid2">' +
         selectField('e-role', 'Role', [['user', 'User'], ['admin', 'Admin']], u.role) +
         selectField('e-active', 'Status', [['true', 'Active'], ['false', 'Disabled']], String(u.active !== false)) +
@@ -199,6 +203,7 @@
 
     var accts = el('e-accounts');
     wireAcctRemovers(accts);
+    wireAvatar('e');
     el('e-add-acct').addEventListener('click', function () {
       accts.insertAdjacentHTML('beforeend', acctRowHTML());
       wireAcctRemovers(accts);
@@ -305,6 +310,73 @@
       opts.map(function (o) {
         return '<option value="' + esc(o[0]) + '"' + (String(selected) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
       }).join('') + '</select></div>';
+  }
+
+  /* ---------- profile image: upload (downscaled to a data URL) or leave default ---------- */
+  // A stored photoUrl equal to the default asset is treated as "no custom image".
+  function avatarField(prefix, currentUrl) {
+    var custom = currentUrl && currentUrl !== DEFAULT_AVATAR ? currentUrl : '';
+    return '<div class="field"><label>Profile image</label>' +
+      '<div class="avatar-edit">' +
+        '<img id="' + prefix + '-photo-preview" class="avatar-preview" src="' + esc(custom || DEFAULT_AVATAR) + '" alt="">' +
+        '<div class="avatar-actions">' +
+          '<input type="file" accept="image/*" id="' + prefix + '-photo-file" class="hidden-file">' +
+          '<label for="' + prefix + '-photo-file" class="btn btn-light">Upload image</label>' +
+          '<button type="button" class="btn btn-light" id="' + prefix + '-photo-clear">Use default</button>' +
+        '</div>' +
+        '<input type="hidden" id="' + prefix + '-photoUrl" value="' + esc(custom) + '">' +
+      '</div>' +
+      '<div class="muted avatar-hint" id="' + prefix + '-photo-hint">PNG/JPG, auto-resized to 256px. Leave default to use the coin badge.</div>' +
+    '</div>';
+  }
+
+  // Read an image file and return a square, center-cropped 256px JPEG data URL.
+  function fileToAvatarDataUrl(file, cb) {
+    var reader = new FileReader();
+    reader.onerror = function () { cb(null); };
+    reader.onload = function () {
+      var img = new Image();
+      img.onerror = function () { cb(null); };
+      img.onload = function () {
+        var size = 256;
+        var canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        var ctx = canvas.getContext('2d');
+        var scale = Math.max(size / img.width, size / img.height); // cover
+        var w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        try { cb(canvas.toDataURL('image/jpeg', 0.85)); } catch (e) { cb(null); }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function wireAvatar(prefix) {
+    var fileInput = el(prefix + '-photo-file');
+    var preview = el(prefix + '-photo-preview');
+    var hidden = el(prefix + '-photoUrl');
+    var clearBtn = el(prefix + '-photo-clear');
+    var hint = el(prefix + '-photo-hint');
+    if (!fileInput || !hidden) return;
+    fileInput.addEventListener('change', function () {
+      var f = fileInput.files && fileInput.files[0];
+      if (!f) return;
+      if (f.size > 8 * 1024 * 1024) { toast('Image too large (max 8MB)', true); fileInput.value = ''; return; }
+      if (hint) hint.textContent = 'Processing image…';
+      fileToAvatarDataUrl(f, function (dataUrl) {
+        if (!dataUrl) { toast('Could not read that image', true); if (hint) hint.textContent = ''; return; }
+        hidden.value = dataUrl;
+        preview.src = dataUrl;
+        if (hint) hint.textContent = 'New image ready — click Save to apply.';
+      });
+    });
+    if (clearBtn) clearBtn.addEventListener('click', function () {
+      hidden.value = '';
+      preview.src = DEFAULT_AVATAR;
+      fileInput.value = '';
+      if (hint) hint.textContent = 'Using the default coin badge.';
+    });
   }
 
   /* ---------- boot / guard ---------- */

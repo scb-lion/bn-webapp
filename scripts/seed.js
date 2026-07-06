@@ -32,7 +32,7 @@ async function main() {
       passwordHash: await bcrypt.hash(password, 10),
       role: 'admin',
       active: true,
-      profile: { firstName: name, displayName: name, photoUrl: '/assets/img/dp/Angeline1782480359.jpeg', phone: '', address: '' },
+      profile: { firstName: name, displayName: name, photoUrl: '', phone: '', address: '' },
       accounts: [],
       createdAt: now,
       updatedAt: now,

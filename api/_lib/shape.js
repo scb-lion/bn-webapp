@@ -12,7 +12,7 @@ function publicUser(user) {
     profile: {
       firstName: user.profile?.firstName || '',
       displayName: user.profile?.displayName || user.profile?.firstName || user.username,
-      photoUrl: user.profile?.photoUrl || '/assets/img/dp/Angeline1782480359.jpeg',
+      photoUrl: user.profile?.photoUrl || '/assets/img/default-avatar.png',
       phone: user.profile?.phone || '',
       address: user.profile?.address || '',
     },

@@ -95,7 +95,7 @@ async function seedAdmin() {
     await users.insertOne({
       username, email: '', passwordHash: await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD || 'admin123', 10),
       role: 'admin', active: true,
-      profile: { firstName: process.env.SEED_ADMIN_NAME || 'Bank Admin', displayName: process.env.SEED_ADMIN_NAME || 'Bank Admin', photoUrl: '/assets/img/dp/Angeline1782480359.jpeg', phone: '', address: '' },
+      profile: { firstName: process.env.SEED_ADMIN_NAME || 'Bank Admin', displayName: process.env.SEED_ADMIN_NAME || 'Bank Admin', photoUrl: '', phone: '', address: '' },
       accounts: [], createdAt: now, updatedAt: now,
     });
     console.log(`  seeded admin  ->  username: ${username}  password: ${process.env.SEED_ADMIN_PASSWORD || 'admin123'}`);
