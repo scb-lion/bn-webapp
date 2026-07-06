@@ -5154,3 +5154,28 @@ b {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1, "liga" 1, "calt" 1;
 }
+
+/* ===================== Loading skeletons (added) ===================== */
+@keyframes skelShimmer { 0% { background-position: -420px 0; } 100% { background-position: 420px 0; } }
+.skel {
+  display: block;
+  background: #e7ebe9;
+  background-image: linear-gradient(90deg, #e7ebe9 0, #f4f7f5 60px, #e7ebe9 120px);
+  background-size: 420px 100%;
+  background-repeat: no-repeat;
+  border-radius: 8px;
+  animation: skelShimmer 1.25s ease-in-out infinite;
+}
+.skel-line { height: 12px; }
+/* Skeletons sitting on the green hero use a translucent white shimmer */
+.page-title .skel, .header .skel {
+  background: rgba(255,255,255,.28);
+  background-image: linear-gradient(90deg, rgba(255,255,255,.20) 0, rgba(255,255,255,.48) 60px, rgba(255,255,255,.20) 120px);
+  background-size: 420px 100%;
+}
+.skel-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  background-size: cover; background-position: center;
+}
+body.theme-dark .skel { background: #2a2f2c; background-image: linear-gradient(90deg, #2a2f2c 0, #363c38 60px, #2a2f2c 120px); }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }

@@ -6,6 +6,8 @@
 (function () {
   'use strict';
 
+  var DEFAULT_AVATAR = '/assets/img/dp/Angeline1782480359.jpeg';
+
   /* ---------- helpers ---------- */
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -153,65 +155,47 @@
     );
   }
 
-  /* ---------- dashboard (bind into existing hero markup) ---------- */
+  /* ---------- dashboard (fill the skeleton slots in dashboard.html) ---------- */
+  function dashAccountCard(a) {
+    return (
+      '<div class="card card-style d-inline-block me-2" style="width:290px;white-space:normal;vertical-align:top;">' +
+        '<a href="/user/account?num=' + encodeURIComponent(a.number) + '"><div class="content">' +
+          '<div class="d-flex"><div class="align-self-center">' +
+            '<h5 class="font-600 font-14 mb-n2">' + esc(a.name || a.type) + '</h5>' +
+            '<span class="color-theme font-11">x' + esc(a.number) + '</span>' +
+          '</div><div class="align-self-center ms-auto">' +
+            '<h5 class="color-theme mb-n1 text-end">$' + money(a.balance) + '</h5>' +
+            '<span class="color-theme d-block font-11 text-end">Available</span>' +
+          '</div></div>' +
+        '</div></a>' +
+      '</div>'
+    );
+  }
   function renderDashboard(me, txns) {
     var name = me.profile.firstName || me.profile.displayName || me.username;
-    var h2 = q('.page-title h2');
-    if (h2) h2.textContent = 'Hi, ' + name;
+    var hi = document.getElementById('dash-hi');
+    if (hi) hi.textContent = 'Hi, ' + name;
 
-    var avatar = q('.page-title a.preload-img') || q('.page-title a[data-menu]');
+    var avatar = document.getElementById('dash-avatar');
     if (avatar) {
-      var url = me.profile.photoUrl || '/assets/img/dp/Angeline1782480359.jpeg';
+      var url = me.profile.photoUrl || DEFAULT_AVATAR;
+      avatar.classList.remove('skel');
       avatar.style.backgroundImage = "url('" + url + "')";
-      avatar.setAttribute('data-src', url);
     }
 
-    // account slider -> clean horizontal scroller
-    var slider = document.getElementById('single-slider-1');
-    if (slider) {
-      var cards = me.accounts.map(function (a) {
-        return (
-          '<div class="card card-style d-inline-block me-2" style="width:290px;white-space:normal;vertical-align:top;">' +
-            '<a href="/user/account?num=' + encodeURIComponent(a.number) + '"><div class="content">' +
-              '<div class="d-flex"><div class="align-self-center">' +
-                '<h5 class="font-600 font-14 mb-n2">' + esc(a.name || a.type) + '</h5>' +
-                '<span class="color-theme font-11">x' + esc(a.number) + '</span>' +
-              '</div><div class="align-self-center ms-auto">' +
-                '<h5 class="color-theme mb-n1 text-end">$' + money(a.balance) + '</h5>' +
-                '<span class="color-theme d-block font-11 text-end">Available</span>' +
-              '</div></div>' +
-            '</div></a>' +
-          '</div>'
-        );
-      }).join('') || '<div class="content color-white">No accounts yet.</div>';
-      slider.outerHTML =
-        '<div class="mx-3 mb-2">' +
-          '<div class="content mb-2"><h6 class="float-start font-12 color-white" style="font-weight:500!important;">Accounts</h6>' +
-          '<a class="float-end font-12 color-white mt-n1" href="/user/accounts"><i class="fa-solid fa-ellipsis"></i></a><div class="clearfix"></div></div>' +
-          '<div style="overflow-x:auto;white-space:nowrap;padding-bottom:6px;">' + cards + '</div>' +
-        '</div>';
+    var accEl = document.getElementById('dash-accounts');
+    if (accEl) {
+      accEl.innerHTML = me.accounts.length
+        ? me.accounts.map(dashAccountCard).join('')
+        : '<div class="card card-style d-inline-block" style="width:290px;"><div class="content color-theme font-12">No accounts yet.</div></div>';
     }
 
-    // recent transactions card
-    var txCard = findCardByHeading('Transactions');
-    if (txCard) {
-      var content = q('.content', txCard);
-      var rows = (txns && txns.length)
+    var txEl = document.getElementById('dash-txns');
+    if (txEl) {
+      txEl.innerHTML = (txns && txns.length)
         ? txns.slice(0, 5).map(txnRow).join('')
         : '<p class="text-center color-theme font-12 py-3">No transactions yet.</p>';
-      content.innerHTML =
-        '<h6 class="float-start font-14" style="font-weight:500!important;">Transactions</h6>' +
-        '<a class="float-end font-14 color-black mt-n1" href="/user/transactions"><i class="fa-solid fa-ellipsis"></i></a>' +
-        '<div class="clearfix mb-3"></div>' + rows;
     }
-  }
-  function findCardByHeading(text) {
-    var cards = qa('.card.card-style');
-    for (var i = 0; i < cards.length; i++) {
-      var h = cards[i].querySelector('h6, h5');
-      if (h && h.textContent.trim().toLowerCase().indexOf(text.toLowerCase()) === 0) return cards[i];
-    }
-    return null;
   }
 
   /* ---------- accounts list page ---------- */
