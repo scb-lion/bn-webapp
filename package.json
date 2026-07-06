@@ -6,6 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "seed": "node scripts/seed.js",
+    "seed:user": "node scripts/seed-user.js",
     "dev": "vercel dev"
   },
   "dependencies": {
