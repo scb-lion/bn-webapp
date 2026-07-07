@@ -146,14 +146,17 @@
         field('n-password', 'Password *', 'password') +
       '</div>' +
       '<div class="grid2">' +
-        field('n-firstName', 'First / display name', 'text') +
-        field('n-email', 'Email', 'email') +
+        field('n-firstName', 'First name (used in greeting)', 'text') +
+        field('n-fullName', 'Full name (shown on profile)', 'text') +
       '</div>' +
       '<div class="grid2">' +
+        field('n-email', 'Email', 'email') +
         field('n-phone', 'Phone', 'text') +
+      '</div>' +
+      '<div class="grid2">' +
+        field('n-address', 'Address', 'text') +
         selectField('n-role', 'Role', [['user', 'User'], ['admin', 'Admin']]) +
       '</div>' +
-      field('n-address', 'Address', 'text') +
       avatarField('n', '') +
       '<div class="section-title">Accounts</div>' +
       '<div id="n-accounts">' + acctRowHTML() + '</div>' +
@@ -180,7 +183,7 @@
         username: el('n-username').value.trim(),
         password: el('n-password').value,
         firstName: el('n-firstName').value.trim(),
-        displayName: el('n-firstName').value.trim(),
+        displayName: el('n-fullName').value.trim() || el('n-firstName').value.trim(),
         email: el('n-email').value.trim(),
         phone: el('n-phone').value.trim(),
         address: el('n-address').value.trim(),
@@ -216,13 +219,14 @@
         '<button class="btn btn-danger" id="e-delete">Delete</button>' +
       '</div>' +
       '<div class="grid2">' +
-        field('e-firstName', 'First / display name', 'text', u.profile.firstName || u.profile.displayName) +
-        field('e-email', 'Email', 'email', u.email) +
+        field('e-firstName', 'First name (used in greeting)', 'text', u.profile.firstName) +
+        field('e-fullName', 'Full name (shown on profile)', 'text', u.profile.displayName) +
       '</div>' +
       '<div class="grid2">' +
+        field('e-email', 'Email', 'email', u.email) +
         field('e-phone', 'Phone', 'text', u.profile.phone) +
-        field('e-address', 'Address', 'text', u.profile.address) +
       '</div>' +
+      field('e-address', 'Address', 'text', u.profile.address) +
       avatarField('e', u.profile.photoUrl) +
       '<div class="grid2">' +
         selectField('e-role', 'Role', [['user', 'User'], ['admin', 'Admin']], u.role) +
@@ -290,7 +294,7 @@
     try {
       var body = {
         firstName: el('e-firstName').value.trim(),
-        displayName: el('e-firstName').value.trim(),
+        displayName: el('e-fullName').value.trim() || el('e-firstName').value.trim(),
         email: el('e-email').value.trim(),
         phone: el('e-phone').value.trim(),
         photoUrl: el('e-photoUrl').value.trim(),
