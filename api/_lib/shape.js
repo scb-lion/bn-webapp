@@ -42,6 +42,10 @@ function publicTxn(t) {
     amount: Number.isFinite(t.amount) ? t.amount : 0, // signed cents
     type: t.type || (t.amount >= 0 ? 'credit' : 'debit'),
     balanceAfter: Number.isFinite(t.balanceAfter) ? t.balanceAfter : null,
+    status: t.status || 'completed', // 'pending' | 'completed' | 'rejected'
+    kind: t.kind || '', // '' | 'internal' | 'domestic' | 'wire' | 'zelle' | 'deposit'
+    transferId: t.transferId || '',
+    meta: t.meta && typeof t.meta === 'object' ? t.meta : null,
   };
 }
 

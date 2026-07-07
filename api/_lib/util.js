@@ -17,9 +17,13 @@ function genRef() {
   return 'ref_' + randomId(12).toLowerCase();
 }
 
+function genTransferId() {
+  return 'tr_' + randomId(14).toLowerCase();
+}
+
 // A short account id/number if the admin doesn't supply one.
 function genAccountId() {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
-module.exports = { toCents, randomId, genRef, genAccountId };
+module.exports = { toCents, randomId, genRef, genTransferId, genAccountId };
