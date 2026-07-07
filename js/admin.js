@@ -3,7 +3,7 @@
 (function () {
   'use strict';
 
-  var state = { users: [], selectedId: null };
+  var state = { users: [], selectedId: null, approvals: [], emailConfigured: null };
   var DEFAULT_AVATAR = '/assets/img/default-avatar.png';
 
   /* ---------- helpers ---------- */
@@ -60,6 +60,7 @@
       var data = await api('/api/admin/users');
       state.users = data.users || [];
       renderList();
+      renderStats();
     } catch (e) { toast(e.message, true); }
   }
 
@@ -96,7 +97,7 @@
   /* ---------- Zelle recipient editor rows ---------- */
   function recipRowHTML(r) {
     r = r || { id: '', name: '', contact: '' };
-    return '<div class="acct-row recip-row" data-id="' + esc(r.id || '') + '" style="grid-template-columns:1fr 1fr auto;">' +
+    return '<div class="recip-row" data-id="' + esc(r.id || '') + '">' +
       '<input class="r-name" placeholder="Recipient name" value="' + esc(r.name || '') + '">' +
       '<input class="r-contact" placeholder="Email or U.S. mobile" value="' + esc(r.contact || '') + '">' +
       '<button type="button" class="btn btn-danger r-remove">✕</button>' +
@@ -174,6 +175,7 @@
     });
     el('n-cancel').addEventListener('click', function () { clearEditor(); });
     el('n-save').addEventListener('click', saveNewUser);
+    if (window.innerWidth <= 900) el('editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   async function saveNewUser() {
@@ -205,6 +207,7 @@
     try {
       var data = await api('/api/admin/users?id=' + encodeURIComponent(id));
       renderEditor(data.user, data.transactions || []);
+      if (window.innerWidth <= 900) el('editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) { toast(e.message, true); }
   }
 
@@ -244,7 +247,7 @@
       '<div class="row-flex" style="gap:10px;"><button class="btn btn-primary" id="e-save">Save changes</button></div>' +
 
       '<div class="section-title">Transactions</div>' +
-      '<div class="txn-row" style="grid-template-columns:1fr 1fr 1fr .8fr .8fr auto;">' +
+      '<div class="txn-add">' +
         '<select id="t-account">' + acctOptions + '</select>' +
         '<input id="t-desc" placeholder="Description">' +
         '<input id="t-counter" placeholder="Counterparty">' +
@@ -406,7 +409,9 @@
   async function loadApprovals() {
     try {
       var data = await api('/api/admin/transactions?resource=transfer&status=pending');
-      renderApprovals(data.transfers || []);
+      state.approvals = data.transfers || [];
+      renderApprovals(state.approvals);
+      renderStats();
     } catch (e) { el('approvals-list').innerHTML = '<div class="approvals-empty">Could not load approvals.</div>'; }
   }
   async function actOnTransfer(transferId, action, btn) {
@@ -544,7 +549,9 @@
   async function loadEmail() {
     try {
       var data = await api('/api/admin/email');
+      state.emailConfigured = !!data.settings.configured;
       renderEmailCard(data.settings);
+      renderStats();
     } catch (e) {
       el('email-card').innerHTML = '<div class="approvals-empty">Could not load email settings.</div>';
     }
@@ -658,12 +665,54 @@
     });
   }
 
+  /* ---------- overview stat cards ---------- */
+  function renderStats() {
+    var box = el('stats');
+    if (!box) return;
+    var users = state.users || [];
+    var totalCents = users.reduce(function (s, u) {
+      return s + (u.accounts || []).reduce(function (x, a) { return x + (a.balance || 0); }, 0);
+    }, 0);
+    var admins = users.filter(function (u) { return u.role === 'admin'; }).length;
+    var pending = (state.approvals || []).length;
+    var emailOk = state.emailConfigured;
+    var cards = [
+      { lbl: 'Total users', val: String(users.length), hint: admins + ' admin' + (admins === 1 ? '' : 's'), ico: 'fa-users' },
+      { lbl: 'Pending approvals', val: String(pending), hint: pending ? 'Awaiting review' : 'All clear', ico: 'fa-clock' },
+      { lbl: 'Balances held', val: money(totalCents), hint: 'Across all accounts', ico: 'fa-wallet' },
+      { lbl: 'Email delivery', val: emailOk === null ? '—' : (emailOk ? 'Live' : 'Preview'), hint: emailOk === null ? 'Checking…' : (emailOk ? 'SMTP configured' : 'Not configured'), ico: 'fa-paper-plane' },
+    ];
+    box.innerHTML = cards.map(function (c) {
+      return '<div class="stat"><div class="top"><span class="lbl">' + esc(c.lbl) + '</span>' +
+        '<span class="ico"><i class="fas ' + c.ico + '"></i></span></div>' +
+        '<div class="val">' + esc(c.val) + '</div><div class="hint">' + esc(c.hint) + '</div></div>';
+    }).join('');
+  }
+
+  /* ---------- view switching + mobile drawer ---------- */
+  var VIEW_TITLES = { overview: 'Overview', users: 'Users', settings: 'Settings' };
+  function closeNav() { el('app').classList.remove('nav-open'); }
+  function setView(name) {
+    Array.prototype.forEach.call(document.querySelectorAll('.view'), function (v) {
+      v.classList.toggle('active', v.id === 'view-' + name);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function (n) {
+      n.classList.toggle('active', n.getAttribute('data-view') === name);
+    });
+    el('page-title').textContent = VIEW_TITLES[name] || 'Admin';
+    closeNav();
+    window.scrollTo(0, 0);
+  }
+
   /* ---------- boot / guard ---------- */
   (async function () {
     try {
       var me = await api('/api/me');
       if (!me.user || me.user.role !== 'admin') { location.replace('/login'); return; }
-      el('admin-name').textContent = me.user.profile.displayName || me.user.username;
+      var nm = me.user.profile.displayName || me.user.username;
+      el('admin-name').textContent = nm;
+      el('topbar-name').textContent = nm;
+      el('admin-initial').textContent = (nm || 'A').trim().charAt(0).toUpperCase();
     } catch (e) {
       location.replace('/login'); return;
     }
@@ -673,6 +722,14 @@
     el('new-user-btn').addEventListener('click', renderNewUser);
     var refresh = el('approvals-refresh');
     if (refresh) refresh.addEventListener('click', loadApprovals);
+
+    // sidebar nav + mobile drawer
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function (n) {
+      n.addEventListener('click', function () { setView(n.getAttribute('data-view')); });
+    });
+    el('menu-btn').addEventListener('click', function () { el('app').classList.toggle('nav-open'); });
+    el('sb-backdrop').addEventListener('click', closeNav);
+
     await loadUsers();      // populate state.users before the email compose dropdown builds
     loadApprovals();
     loadSecurity();
