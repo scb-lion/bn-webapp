@@ -101,10 +101,25 @@ function esc(v) {
 function money(cents) {
   return '$' + ((Number(cents) || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+// The From address is ALWAYS the authenticated SMTP (Gmail) account. Sending as
+// the account we actually authenticate with keeps SPF, DKIM and DMARC aligned —
+// the single biggest factor in landing in the inbox instead of spam. A custom
+// From email would misalign (Gmail signs for gmail.com) and get foldered.
 function fromHeader(s) {
-  const email = (s.from && s.from.email) || (s.smtp && s.smtp.user) || '';
+  const email = (s.smtp && s.smtp.user) || (s.from && s.from.email) || '';
   const name = (s.from && s.from.name) || BRAND.name;
   return email ? '"' + name.replace(/"/g, '') + '" <' + email + '>' : name;
+}
+// Replies can still route to a different mailbox without hurting deliverability:
+// Reply-To isn't authenticated, so a custom address here is safe.
+function replyToHeader(s) {
+  const custom = String((s.from && s.from.email) || '').trim();
+  const sender = String((s.smtp && s.smtp.user) || '').trim();
+  const name = (s.from && s.from.name) || BRAND.name;
+  if (custom && custom.toLowerCase() !== sender.toLowerCase()) {
+    return '"' + name.replace(/"/g, '') + '" <' + custom + '>';
+  }
+  return fromHeader(s);
 }
 function kindLabel(kind, meta) {
   const labels = { internal: 'Internal Transfer', domestic: 'Domestic Transfer', wire: 'Wire / ACH Transfer', zelle: 'Zelle®', deposit: 'Mobile Check Deposit' };
@@ -405,18 +420,24 @@ const BUILDERS = {
    (hosted Site URL vs inline CID) and button links resolve from settings. */
 async function sendRaw(settings, msg) {
   const { tx, live } = getTransporter(settings);
-  // Logo is always referenced as a hosted image (no file attachment).
-  const logoSrc = (settings.siteUrl || '') + logo.path;
+  // Prefer a hosted logo when a public Site URL is set; otherwise inline it as a
+  // CID attachment. A broken/blocked remote image is a spam signal, and Gmail
+  // strips base64 data: images — a CID inline image renders reliably instead.
+  const useHosted = !!settings.siteUrl;
+  const logoSrc = useHosted ? settings.siteUrl + logo.path : 'cid:brandlogo';
   const from = fromHeader(settings);
   const mail = {
     from: from,
-    replyTo: from,
+    replyTo: replyToHeader(settings),
     to: msg.to,
     subject: msg.subject,
     html: renderEmail(msg.content, { logoSrc: logoSrc, siteUrl: settings.siteUrl }),
     text: toText(msg.content, settings.siteUrl),
     headers: { 'X-Auto-Response-Suppress': 'OOF, AutoReply' },
   };
+  if (!useHosted && logo.base64) {
+    mail.attachments = [{ filename: logo.filename, content: Buffer.from(logo.base64, 'base64'), contentType: logo.contentType, cid: 'brandlogo' }];
+  }
   const info = await tx.sendMail(mail);
   if (!live) console.log('[email] (preview — SMTP not configured) to=%s subject=%s', msg.to, msg.subject);
   else console.log('[email] sent to=%s subject=%s id=%s', msg.to, msg.subject, info.messageId);
@@ -463,7 +484,9 @@ async function sendCustomEmail(user, subject, message) {
 // by the "Copy HTML" preview so the copied markup matches exactly what's sent.
 async function renderCustomEmail(user, subject, message) {
   const settings = await getEmailSettings();
-  const logoSrc = (settings.siteUrl || '') + logo.path;
+  // Copied HTML is pasted into other tools (an ESP editor, a preview) where no
+  // CID attachment exists — so embed the logo as a data URI to stay self-contained.
+  const logoSrc = settings.siteUrl ? settings.siteUrl + logo.path : logo.dataUri();
   return renderEmail(buildCustomContent(user, subject, message), { logoSrc: logoSrc, siteUrl: settings.siteUrl });
 }
 

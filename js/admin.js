@@ -488,7 +488,7 @@
         '<h3 style="margin:0;">Email automation ' + statusPill + '</h3>' +
         '<label class="toggle-row" style="margin:0;"><input type="checkbox" id="em-enabled"' + (s.enabled ? ' checked' : '') + '> Enabled</label>' +
       '</div>' +
-      '<div class="muted" style="margin-bottom:12px;">Sends branded emails from your Gmail account. Use a Google <b>App Password</b> (Account → Security → 2-Step Verification → App passwords), not your normal password. For best delivery, keep the <b>From email</b> equal to the Gmail address below.</div>' +
+      '<div class="muted" style="margin-bottom:12px;">Sends branded emails from your Gmail account. Use a Google <b>App Password</b> (Account → Security → 2-Step Verification → App passwords), not your normal password. For deliverability, mail is always sent <b>from the Gmail address</b> below so it passes SPF/DKIM/DMARC — set a Site URL so the logo loads, and test placement at <b>mail-tester.com</b>.</div>' +
       '<div class="field"><label for="em-siteurl">Site URL (for the logo image &amp; button links)</label>' +
         '<input id="em-siteurl" type="text" value="' + esc(s.siteUrl || '') + '" placeholder="https://your-site.vercel.app"></div>' +
       '<div class="grid2">' +
@@ -501,8 +501,8 @@
           '<input id="em-pass" type="password" placeholder="' + (s.smtp.hasPassword ? '•••••••• (leave blank to keep)' : 'your 16-character app password') + '"></div>' +
       '</div>' +
       '<div class="grid2">' +
-        field('em-fromname', 'From name', 'text', s.from.name) +
-        field('em-fromemail', 'From email (blank = SMTP username)', 'text', s.from.email) +
+        field('em-fromname', 'From name (display name)', 'text', s.from.name) +
+        field('em-fromemail', 'Reply-to email (optional — where replies go)', 'text', s.from.email) +
       '</div>' +
       '<label class="toggle-row"><input type="checkbox" id="em-secure"' + (s.smtp.secure ? ' checked' : '') + '> Use SSL/TLS (recommended for port 465)</label>' +
       '<div class="section-title">Send an email on these events</div>' + toggles +
