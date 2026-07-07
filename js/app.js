@@ -216,7 +216,10 @@
   function txnRow(t, opts) {
     var s = signed(t.amount);
     var ic = txnIcon(t);
-    var badge = opts && opts.badge ? '<div class="txn-badge">Completed</div>' : '';
+    var badge = '';
+    if (t.status === 'pending') badge = '<div class="txn-badge txn-badge-pending">Pending</div>';
+    else if (t.status === 'rejected') badge = '<div class="txn-badge txn-badge-rejected">Rejected</div>';
+    else if (opts && opts.badge) badge = '<div class="txn-badge">Completed</div>';
     return (
       '<a href="/user/transaction/detail?id=' + encodeURIComponent(t.id) + '" class="txn-row">' +
         '<div class="d-flex align-items-center">' +
@@ -392,6 +395,98 @@
       '<div class="mx-3"><a href="#" data-action="logout" class="btn btn-full btn-m rounded-s font-600 bg-red-dark">Log out</a></div>'));
   }
 
+  /* ---------- transfer / deposit forms (any page with a form[data-kind]) ---------- */
+  function acctOption(a) {
+    return '<option value="' + esc(a.id) + '">' + esc(a.type) + ' ••' + esc(String(a.number).slice(-4)) +
+      ' — $' + money(a.balance) + '</option>';
+  }
+  function transferSuccess(form, kind, cents) {
+    var container = form.closest('.w-form') || form.parentNode;
+    var labels = { internal: 'transfer', domestic: 'transfer', wire: 'wire transfer', zelle: 'Zelle payment', deposit: 'deposit' };
+    var label = labels[kind] || 'transfer';
+    container.innerHTML =
+      '<div class="card card-style" style="margin-top:24px;"><div class="content text-center" style="padding:26px 18px;">' +
+        '<div style="width:66px;height:66px;border-radius:50%;background:#e4f2df;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">' +
+          '<i class="fas fa-clock" style="font-size:28px;color:#0f6b3b;"></i></div>' +
+        '<h3 class="font-700 mb-1">Submitted for approval</h3>' +
+        '<p class="color-theme font-13" style="line-height:19px;">Your <b>$' + money(cents) + '</b> ' + esc(label) +
+          ' is <b>pending review</b>. It will be processed once approved and shows in your activity marked <b>Pending</b>.</p>' +
+        '<a href="/user/dashboard" class="ms-button is-small w-inline-block" style="text-decoration:none;margin-top:10px;"><div>Back to dashboard</div></a>' +
+      '</div></div>';
+  }
+  function wireTransferForm(form, me) {
+    var kind = form.getAttribute('data-kind');
+    var fromSel = form.querySelector('[name="account_id"]');
+    var toSel = form.querySelector('[name="to_account_id"]');
+    var amountInput = form.querySelector('[name="amount"]');
+    var balanceHint = form.querySelector('#tf-balance');
+    var errorBox = form.querySelector('#tf-error');
+    var accounts = me.accounts || [];
+
+    function showError(msg) { if (errorBox) { errorBox.textContent = msg; errorBox.style.display = 'block'; } }
+    function hideError() { if (errorBox) errorBox.style.display = 'none'; }
+    function fromAcct() { return accounts.filter(function (a) { return String(a.id) === String(fromSel && fromSel.value); })[0]; }
+
+    var opts = '<option value="">Select Account…</option>' + accounts.map(acctOption).join('');
+    if (fromSel) fromSel.innerHTML = opts;
+    if (toSel) toSel.innerHTML = opts;
+    // Preselect the first account for a smoother flow.
+    if (fromSel && accounts.length) fromSel.value = String(accounts[0].id);
+    if (toSel && accounts.length > 1) toSel.value = String(accounts[1].id);
+
+    function updateBalance() {
+      if (!balanceHint) return;
+      var a = fromAcct();
+      balanceHint.textContent = a ? ('Available balance: $' + money(a.balance)) : '';
+    }
+    if (fromSel) fromSel.addEventListener('change', updateBalance);
+    updateBalance();
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      hideError();
+      if (!form.checkValidity()) { form.reportValidity(); return; }
+
+      var fromId = fromSel ? fromSel.value : '';
+      if (!fromId) { showError('Choose an account'); return; }
+      var amt = parseFloat(amountInput && amountInput.value);
+      if (!(amt > 0)) { showError('Enter an amount greater than $0.00'); return; }
+      var cents = Math.round(amt * 100);
+
+      if (kind !== 'deposit') {
+        var a = fromAcct();
+        if (a && cents > a.balance) { showError('Amount exceeds your available balance ($' + money(a.balance) + ')'); return; }
+      }
+      if (kind === 'internal') {
+        if (!toSel.value) { showError('Choose a destination account'); return; }
+        if (toSel.value === fromId) { showError('Choose two different accounts'); return; }
+      }
+
+      var payload = { kind: kind, fromAccountId: fromId };
+      if (toSel) payload.toAccountId = toSel.value;
+      var fd = new FormData(form);
+      fd.forEach(function (v, k) {
+        if (k === 'account_id' || k === 'to_account_id') return; // mapped above
+        payload[k] = v;
+      });
+
+      var btn = form.querySelector('button[type="submit"]');
+      if (btn) btn.disabled = true;
+      api('/api/transfers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload),
+      }).then(async function (res) {
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok) throw new Error(data.error || 'Transfer could not be submitted');
+        transferSuccess(form, kind, cents);
+      }).catch(function (err) {
+        showError(err.message || 'Transfer could not be submitted');
+        if (btn) btn.disabled = false;
+      });
+    });
+  }
+
   /* ---------- boot ---------- */
   document.addEventListener('DOMContentLoaded', async function () {
     var payload = window.meReady ? await window.meReady : null;
@@ -402,6 +497,8 @@
     ensureMenu();
 
     try {
+      var tform = document.querySelector('form[data-kind]');
+      if (tform) { wireTransferForm(tform, me); return; }
       if (/\/user\/dashboard$/.test(path)) renderDashboard(me, txns);
       else if (/\/user\/accounts$/.test(path)) renderAccounts(me);
       else if (/\/user\/account(\/checking\/[^/]+)?$/.test(path)) await renderAccount(me);

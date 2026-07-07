@@ -10,16 +10,17 @@
         <link rel="stylesheet" type="text/css" href="/assets/app/css/bootstrap.css">
 <link rel="stylesheet" type="text/css" href="/assets/app/css/style.css">
 
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://rsms.me" crossorigin>
     <link href="https://cdn.jsdelivr.net/gh/hung1001/font-awesome-pro@4cac1a6/css/all.css" rel="stylesheet" type="text/css">
-
-    <link rel="preconnect" href="https://rsms.me/">
-  <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
-
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://rsms.me/inter/inter.css"></noscript>
 
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/img/logo.png">
 </head>
 
-<div class="menu-hider"></div><body>
+<body>
+    <div class="menu-hider"></div>
 
     <div id="page" class="ms-page-wrap device-is-android" data-swup="0">
 
@@ -41,29 +42,26 @@
         <div class="w-form">
 
 
-            <form method="post" action="/user/proccess-wtransfer">
-                <input type="hidden" name="_token" value="GcJyE1jKtdVj5pbdbRDgafHIhfKtCnZxWSMauY8X" autocomplete="off">                <div id="sectionInput" class="ms-container">
+            <form id="transfer-form" data-kind="wire" method="post" action="/api/transfers" novalidate>
+                <div id="sectionInput" class="ms-container">
 
-                
-                    
-                    <div style="margin-top: 20px;"><label for="email-7" class="ms-input-label">Transfer money from</label>
+                    <div style="margin-top: 20px;"><label for="tf-from" class="ms-input-label">Transfer money from</label>
                         <div class="ms-input-wrap">
-                            <select id="field-6q" name="account_id" class="ms-input w-select">
-                                <option>Select Account...</option>
-                                                                <option value="5433">Checking - $18,900,000.00</option>
-                                                            </select>
+                            <select id="tf-from" name="account_id" class="ms-input w-select" required>
+                                <option value="">Select Account…</option>
+                            </select>
 
                             <div class="ms-select-svg w-embed"><svg xmlns="http://www.w3.org/2000/svg" height="32px" viewBox="0 0 24 24" width="32px" fill="currentColor">
                                     <path d="M0 0h24v24H0V0z" fill="none"></path>
                                     <path d="M8.71 11.71l2.59 2.59c.39.39 1.02.39 1.41 0l2.59-2.59c.63-.63.18-1.71-.71-1.71H9.41c-.89 0-1.33 1.08-.7 1.71z"></path>
                                 </svg></div>
                         </div>
-
+                        <div class="ms-help-text" id="tf-balance"></div>
                     </div>
 
                     <div>
                         <div class="ms-input-wrap">
-                            <input type="number" step="1" min="1" class="ms-input has-left-icon w-input" name="amount" placeholder="Amount (in cents)" required="">
+                            <input id="tf-amount" type="number" step="0.01" min="0.01" inputmode="decimal" class="ms-input has-left-icon w-input" name="amount" placeholder="Amount (USD)" required>
                             <div class="ms-svg is-left w-embed"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor">
                                     <path d="M0 0h24v24H0V0z" fill="none"></path>
                                     <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.42 0 2.13.54 2.39 1.4.12.4.45.7.87.7h.3c.66 0 1.13-.65.9-1.27-.42-1.18-1.4-2.16-2.96-2.54V4.5c0-.83-.67-1.5-1.5-1.5S10 3.67 10 4.5v.66c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-1.65 0-2.5-.59-2.83-1.43-.15-.39-.49-.67-.9-.67h-.28c-.67 0-1.14.68-.89 1.3.57 1.39 1.9 2.21 3.4 2.53v.67c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-.65c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"></path>
@@ -71,11 +69,11 @@
                         </div>
                     </div>
 
-                    <div><label for="email-7" class="ms-input-label w-clearfix">Recipient &amp; Bank Details </label>
+                    <div><label class="ms-input-label w-clearfix">Recipient &amp; Bank Details </label>
                         <div class="ms-input-wrap">
                             <div class="ms-input-outer">
                                 <input type="text" class="ms-input is-left w-input" name="r_fname" placeholder="Recipient's first name *" required="">
-                                <input type="text" class="ms-input is-right w-input" name="r_lname" placeholder="Recipient's last name *">
+                                <input type="text" class="ms-input is-right w-input" name="r_lname" placeholder="Recipient's last name *" required>
                             </div>
                         </div>
                         <div class="ms-input-wrap">
@@ -345,15 +343,15 @@
                     </div>
 
                     <div>
-                        <input type="text" class="ms-input w-input" name="r_bankname" placeholder="Recipient's bank name *">
+                        <input type="text" class="ms-input w-input" name="r_bankname" placeholder="Recipient's bank name *" required>
                     </div>
 
                     <div>
-                        <input type="text" class="ms-input w-input" name="r_accountnum" placeholder="Account Number *">
+                        <input type="text" class="ms-input w-input" name="r_accountnum" placeholder="Account Number *" required>
                     </div>
 
                     <div class="ms-input-wrap">
-                            <select id="field-6q" name="r_accounttype" class="ms-input w-select">
+                            <select id="tf-accounttype" name="r_accounttype" class="ms-input w-select">
                                 <option>Select Account Type...</option>
                                                                 <option value="Checking Account">Checking Account</option>
                                                                 <option value="Savings Account">Saving Account</option>
@@ -377,6 +375,8 @@
                         <div class="ms-help-text">Please do not use special characters: % &lt;&gt; : - # / &amp; ´</div>
                     </div>
 
+                    <div class="ms-form-error" id="tf-error" style="display:none;color:#c0392b;font-size:13px;margin:6px 0;"></div>
+
                     <div><button type="submit" class="ms-button is-small w-inline-block">
                             <div>Continue</div>
 </button></div>
@@ -399,22 +399,5 @@
 
     <script type="text/javascript" src="/js/guard.js"></script>
     <script type="text/javascript" src="/js/app.js"></script>
-    <script>
-        var acc = document.getElementsByClassName("closebtn");
-        var i;
-
-        for (i = 0; i < acc.length; i++) {
-            acc[i].onclick = function() {
-                var div = this.parentElement;
-                div.style.opacity = "0";
-                setTimeout(function() {
-                    div.style.display = "none";
-                }, 600);
-            }
-        }
-    </script>
-
-
-
 
 <p class="offline-message bg-red-dark color-white">No internet connection detected</p><p class="online-message bg-green-dark color-white">You are back online</p></body></html>

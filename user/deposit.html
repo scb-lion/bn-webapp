@@ -1,4 +1,3 @@
-<!-- Cloned by b-app crawler from /user/deposit at 2026-07-06T12:59:41.772Z -->
 <!DOCTYPE html><html lang="en" class="isPWA"><head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -7,229 +6,108 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover">
     <title>Deposit checks | Alliance Federal Credit Union</title>
 
-        <link rel="stylesheet" type="text/css" href="/assets/app/css/bootstrap.css">
-<link rel="stylesheet" type="text/css" href="/assets/app/css/style.css">
+    <link rel="stylesheet" type="text/css" href="/assets/app/css/bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="/assets/app/css/style.css">
 
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://rsms.me" crossorigin>
     <link href="https://cdn.jsdelivr.net/gh/hung1001/font-awesome-pro@4cac1a6/css/all.css" rel="stylesheet" type="text/css">
-
-    <link rel="preconnect" href="https://rsms.me/">
-  <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
-
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jquery-nice-select@1.1.0/js/jquery.nice-select.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery-nice-select@1.1.0/css/nice-select.min.css">
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://rsms.me/inter/inter.css"></noscript>
 
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/img/logo.png">
 
     <style>
-        .form {}
-
-        .form h2 {
-            text-align: center;
-            color: #acacac;
-            font-size: 40px;
-            font-weight: 400;
-        }
-
-        .form .grid {
-            margin-top: 50px;
-            display: flex;
-            justify-content: center;
-        }
-
-        .form .grid .form-element {
-            background: #EFEFF4;
-            /* Background color */
-            height: 153px;
-            /* Height */
-            width: 48%;
-            /* Adjusted width for two elements in a row with a gap of 20px */
-            margin-bottom: 20px;
-            /* Add space between elements */
-            border: none !important;
-            /* Remove border */
-            border-radius: 10px;
-            /* Border radius */
-            position: relative;
-        }
-
-        .form .grid .form-element:nth-child(odd) {
-            margin-right: 10px;
-            /* Add space between elements */
-        }
-
-        .form .grid .form-element:nth-child(even) {
-            margin-left: 10px;
-            /* Add space between elements */
-        }
-
-
-        .form .grid .form-element input {
-            visibility: hidden;
-            /* Hide the input elements */
-        }
-
-        .form .grid .form-element img {
-            position: absolute;
-            /* Position the image absolutely */
-            top: 50%;
-            /* Align to the top of the container */
-            left: 50%;
-            /* Align to the left of the container */
-            transform: translate(-50%, -50%);
-            /* Move the image back by 50% of its own width and height */
-            border-radius: 10px;
-            /* Border radius */
-            height: 100%;
-            /* Height */
-            width: 100%;
-            object-fit: cover;
-        }
-
-
-        /* Clearfix to clear floats */
-        .form .grid::after {
-            content: "";
-            display: table;
-            clear: both;
-        }
-
-        .main_area {
-            clear: both;
-            padding: 5px 12px;
-            text-align: center;
-            width: 100%;
-            background: #FFF;
-            box-sizing: border-box;
-            margin-top: 15px;
-        }
+        .form .grid { margin-top: 20px; display: flex; justify-content: center; }
+        .form .grid .form-element { background: #EFEFF4; height: 153px; width: 48%; margin-bottom: 20px; border: none !important; border-radius: 10px; position: relative; }
+        .form .grid .form-element:nth-child(odd) { margin-right: 10px; }
+        .form .grid .form-element:nth-child(even) { margin-left: 10px; }
+        .form .grid .form-element input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+        .form .grid .form-element img { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 10px; height: 100%; width: 100%; object-fit: cover; }
+        .form .grid::after { content: ""; display: table; clear: both; }
+        .main_area { clear: both; padding: 5px 12px; text-align: center; width: 100%; background: #FFF; box-sizing: border-box; margin-top: 15px; }
     </style>
-
-
 </head>
 
-<div class="menu-hider"></div><body>
+<body>
+    <div class="menu-hider"></div>
 
     <div id="page" class="ms-page-wrap device-is-android" data-swup="0">
 
-
         <div class="header bg_white_color is-fixed" style="background-color: #2c3135;">
             <div class="tf-container">
-                <div class="tf-statusbar d-flex justify-content-center align-items-center snipcss0-0-0-1">
-                    <a href="/user/dashboard" class="back-btn color-white snipcss0-1-1-2">
-                        <i class="fas fa-arrow-left"></i>
-                    </a>
-                    <div class="header-title header-subtitle color-white">
-                        Deposit checks
-                    </div>
+                <div class="tf-statusbar d-flex justify-content-center align-items-center">
+                    <a href="/user/dashboard" class="back-btn color-white"><i class="fas fa-arrow-left"></i></a>
+                    <div class="header-title header-subtitle color-white">Deposit checks</div>
                 </div>
             </div>
         </div>
 
-
         <div class="w-form">
+            <form id="transfer-form" data-kind="deposit" method="post" action="/api/transfers" novalidate>
+                <div id="sectionInput" class="ms-container">
 
+                    <p style="margin-top: 20px;">Sign and write "for deposit only at Alliance Federal Credit Union" on the back of your check, as applies to your deposit.</p>
 
-            <form method="post" action="">
-                <input type="hidden" name="_token" value="GcJyE1jKtdVj5pbdbRDgafHIhfKtCnZxWSMauY8X" autocomplete="off">                <div id="sectionInput" class="ms-container">
-
-                    <p style="margin-top: 20px;">Sign and write, "for deposit only at Alliance Federal Credit Union" on the back of your check, as applies to your deposit. </p>
                     <div class="main_area">
                         <div class="form">
                             <div class="grid">
                                 <div class="form-element">
                                     <input type="file" name="front_image" id="file1" accept="image/*">
-                                    <label for="file1" id="file1-preview">
-                                        <img src="/assets/img/front.png" alt="">
-                                    </label>
+                                    <label for="file1" id="file1-preview"><img src="/assets/img/front.png" alt="Front of check"></label>
                                 </div>
                                 <div class="form-element">
-                                    <input type="file" name="front_image" id="file2" accept="image/*">
-                                    <label for="file2" id="file2-preview">
-                                        <img src="/assets/img/back.png" s="" alt="">
-                                    </label>
+                                    <input type="file" name="back_image" id="file2" accept="image/*">
+                                    <label for="file2" id="file2-preview"><img src="/assets/img/back.png" alt="Back of check"></label>
                                 </div>
-
-
-
                             </div>
                         </div>
                     </div>
 
-
                     <div>
-                    <label for="amount" class="ms-input-label">Amount</label>
+                        <label for="tf-amount" class="ms-input-label">Amount (USD)</label>
                         <div class="ms-input-wrap">
-                            <input type="number" step="1" min="1" class="ms-input has-left-icon w-input" name="amount" placeholder="Amount (in cents)" required="">
-                            <div class="ms-svg is-left w-embed"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor">
-                                    <path d="M0 0h24v24H0V0z" fill="none"></path>
-                                    <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.42 0 2.13.54 2.39 1.4.12.4.45.7.87.7h.3c.66 0 1.13-.65.9-1.27-.42-1.18-1.4-2.16-2.96-2.54V4.5c0-.83-.67-1.5-1.5-1.5S10 3.67 10 4.5v.66c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-1.65 0-2.5-.59-2.83-1.43-.15-.39-.49-.67-.9-.67h-.28c-.67 0-1.14.68-.89 1.3.57 1.39 1.9 2.21 3.4 2.53v.67c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-.65c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"></path>
-                                </svg></div>
+                            <input id="tf-amount" type="number" step="0.01" min="0.01" inputmode="decimal" class="ms-input has-left-icon w-input" name="amount" placeholder="0.00" required>
+                            <div class="ms-svg is-left w-embed"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.42 0 2.13.54 2.39 1.4.12.4.45.7.87.7h.3c.66 0 1.13-.65.9-1.27-.42-1.18-1.4-2.16-2.96-2.54V4.5c0-.83-.67-1.5-1.5-1.5S10 3.67 10 4.5v.66c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-1.65 0-2.5-.59-2.83-1.43-.15-.39-.49-.67-.9-.67h-.28c-.67 0-1.14.68-.89 1.3.57 1.39 1.9 2.21 3.4 2.53v.67c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-.65c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"></path></svg></div>
                         </div>
                     </div>
 
-                    
-                    <div style="margin-top: 0px;"><label for="email-7" class="ms-input-label">Deposit to:</label>
+                    <div style="margin-top: 0px;">
+                        <label for="tf-from" class="ms-input-label">Deposit to</label>
                         <div class="ms-input-wrap">
-                            <select id="field-6q" name="account_id" class="ms-input w-select" style="display: none;">
-                                <option>Select Account...</option>
-                                                                <option value="5433">Checking - $18,900,000.00</option>
-                                                            </select><div class="nice-select ms-input w-select" tabindex="0"><span class="current">Select Account...</span><ul class="list"><li data-value="Select Account..." class="option selected">Select Account...</li><li data-value="5433" class="option">Checking - $18,900,000.00</li></ul></div>
-
-                            <div class="ms-select-svg w-embed"><svg xmlns="http://www.w3.org/2000/svg" height="32px" viewBox="0 0 24 24" width="32px" fill="currentColor">
-                                    <path d="M0 0h24v24H0V0z" fill="none"></path>
-                                    <path d="M8.71 11.71l2.59 2.59c.39.39 1.02.39 1.41 0l2.59-2.59c.63-.63.18-1.71-.71-1.71H9.41c-.89 0-1.33 1.08-.7 1.71z"></path>
-                                </svg></div>
+                            <select id="tf-from" name="account_id" class="ms-input w-select" required>
+                                <option value="">Select Account…</option>
+                            </select>
+                            <div class="ms-select-svg w-embed"><svg xmlns="http://www.w3.org/2000/svg" height="32px" viewBox="0 0 24 24" width="32px" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M8.71 11.71l2.59 2.59c.39.39 1.02.39 1.41 0l2.59-2.59c.63-.63.18-1.71-.71-1.71H9.41c-.89 0-1.33 1.08-.7 1.71z"></path></svg></div>
                         </div>
                     </div>
 
-    <br><br>
+                    <div class="ms-form-error" id="tf-error" style="display:none;color:#c0392b;font-size:13px;margin:10px 0 0;"></div>
 
-                    <div><button type="button" class="ms-button is-small w-inline-block">
-                            <div>Continue</div>
-                        </button></div>
-
+                    <br>
+                    <div><button type="submit" class="ms-button is-small w-inline-block"><div>Continue</div></button></div>
 
                 </div>
-
-
-
-
             </form>
         </div>
-
-
-
-
-
 
     </div>
 
     <script type="text/javascript" src="/js/guard.js"></script>
     <script type="text/javascript" src="/js/app.js"></script>
-
-
     <script>
-        $(document).ready(function() {
-  $('select').niceSelect();
-});
-
-
+        // Local preview of the chosen check images (no upload — Vercel FS is ephemeral).
         function previewBeforeUpload(id) {
-            document.querySelector("#" + id).addEventListener("change", function(e) {
-                if (e.target.files.length == 0) {
-                    return;
-                }
-                let file = e.target.files[0];
-                let url = URL.createObjectURL(file);
-                document.querySelector("#" + id + "-preview img").src = url;
+            var input = document.getElementById(id);
+            if (!input) return;
+            input.addEventListener('change', function (e) {
+                if (!e.target.files.length) return;
+                var img = document.querySelector('#' + id + '-preview img');
+                if (img) img.src = URL.createObjectURL(e.target.files[0]);
             });
         }
-
-        previewBeforeUpload("file1");
-        previewBeforeUpload("file2");
+        previewBeforeUpload('file1');
+        previewBeforeUpload('file2');
     </script>
-
-
 
 <p class="offline-message bg-red-dark color-white">No internet connection detected</p><p class="online-message bg-green-dark color-white">You are back online</p></body></html>
