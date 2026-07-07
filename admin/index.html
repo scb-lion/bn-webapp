@@ -39,7 +39,13 @@
     .badge.off { background: #fdecea; color: #b3271e; }
     .field { margin-bottom: 12px; }
     .field label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; color: #384540; }
-    .field input, .field select { width: 100%; padding: 10px 12px; border: 1px solid #dbe2df; border-radius: 10px; font-size: 16px; line-height: 22px; font-family: inherit; }
+    .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid #dbe2df; border-radius: 10px; font-size: 16px; line-height: 22px; font-family: inherit; }
+    .field textarea { resize: vertical; }
+    .toggle-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; font-size: 13px; }
+    .toggle-row input { width: 16px; height: 16px; }
+    .pill { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; }
+    .pill.ok { background: #e6f4ea; color: #1a7f37; }
+    .pill.warn { background: #fff2d6; color: #a06b00; }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .row-flex { display: flex; align-items: center; gap: 8px; }
     .acct-row, .txn-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr auto; gap: 8px; align-items: center; margin-bottom: 8px; }
@@ -103,6 +109,12 @@
 
     <div class="card" id="editor">
       <div class="empty">Select a user to edit, or create a new one.</div>
+    </div>
+  </div>
+
+  <div class="approvals-wrap" style="padding-bottom:18px;">
+    <div class="card" id="email-card">
+      <div class="approvals-empty">Loading email settings…</div>
     </div>
   </div>
 

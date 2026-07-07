@@ -29,6 +29,7 @@ const API_ROUTES = {
   '/api/admin/user': 'api/admin/user.js',
   '/api/admin/transactions': 'api/admin/transactions.js',
   '/api/admin/transfers': 'api/admin/transfers.js',
+  '/api/admin/email': 'api/admin/email.js',
 };
 
 // ---- static path resolution (mimics vercel cleanUrls + our two rewrites)

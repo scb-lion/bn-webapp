@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { collections } = require('../_lib/db');
 const { signToken, setSessionCookie, json, readBody } = require('../_lib/auth');
+const { sendEventEmail } = require('../_lib/email');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' });
@@ -20,5 +21,10 @@ module.exports = async (req, res) => {
 
   const token = signToken(user);
   setSessionCookie(res, token);
+
+  // Best-effort sign-in alert (skipped automatically for accounts without an email).
+  const ip = String(req.headers['x-forwarded-for'] || (req.socket && req.socket.remoteAddress) || '').split(',')[0].trim();
+  await sendEventEmail(user, 'login', { when: new Date(), ip: ip, device: String(req.headers['user-agent'] || '') });
+
   return json(res, 200, { ok: true, role: user.role, redirect: user.role === 'admin' ? '/admin' : '/user/dashboard' });
 };

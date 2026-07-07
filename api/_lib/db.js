@@ -36,6 +36,7 @@ async function collections() {
     db,
     users: db.collection('users'),
     transactions: db.collection('transactions'),
+    settings: db.collection('settings'),
   };
 }
 

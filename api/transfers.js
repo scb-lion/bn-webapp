@@ -12,6 +12,7 @@ const { collections } = require('./_lib/db');
 const { requireAuth, json, readBody } = require('./_lib/auth');
 const { publicTxn } = require('./_lib/shape');
 const { toCents, genRef, genTransferId } = require('./_lib/util');
+const { sendEventEmail } = require('./_lib/email');
 
 const KINDS = ['internal', 'domestic', 'wire', 'zelle', 'deposit'];
 const s = (v) => String(v == null ? '' : v).trim().slice(0, 200);
@@ -112,6 +113,15 @@ module.exports = async (req, res) => {
 
   const result = await transactions.insertMany(docs);
   docs.forEach((d, i) => { d._id = result.insertedIds[i]; });
+
+  // Notify the customer their request is pending (best-effort, never fatal).
+  const primaryLeg = docs.find((d) => d.amount < 0) || docs[0];
+  await sendEventEmail(user, 'transferSubmitted', {
+    kind, meta, amountCents: amount,
+    direction: primaryLeg.amount > 0 ? 'in' : 'out',
+    counterparty: primaryLeg.counterparty || counterpartyFor(kind, meta),
+    transferId,
+  });
 
   return json(res, 201, {
     ok: true,

@@ -416,6 +416,123 @@
     } catch (e) { toast(e.message, true); if (btn) btn.disabled = false; }
   }
 
+  /* ---------- email automation settings + manual send ---------- */
+  var EVENT_LABELS = [
+    ['transferSubmitted', 'Transfer / Zelle submitted (pending)'],
+    ['transferApproved', 'Transfer / Zelle approved (completed)'],
+    ['transferRejected', 'Transfer / Zelle rejected'],
+    ['login', 'New sign-in alert'],
+  ];
+  function renderEmailCard(s) {
+    var ev = s.events || {};
+    var toggles = EVENT_LABELS.map(function (e) {
+      return '<label class="toggle-row"><input type="checkbox" data-ev="' + e[0] + '"' + (ev[e[0]] !== false ? ' checked' : '') + '> ' + esc(e[1]) + '</label>';
+    }).join('');
+    var userOpts = (state.users || []).filter(function (u) { return u.email; }).map(function (u) {
+      return '<option value="' + esc(u.id) + '">' + esc(u.profile.displayName || u.username) + ' — ' + esc(u.email) + '</option>';
+    }).join('');
+    var statusPill = s.configured
+      ? '<span class="pill ok">SMTP configured</span>'
+      : '<span class="pill warn">Not configured — previews only</span>';
+
+    el('email-card').innerHTML =
+      '<div class="row-flex" style="justify-content:space-between;margin-bottom:12px;">' +
+        '<h3 style="margin:0;">Email automation ' + statusPill + '</h3>' +
+        '<label class="toggle-row" style="margin:0;"><input type="checkbox" id="em-enabled"' + (s.enabled ? ' checked' : '') + '> Enabled</label>' +
+      '</div>' +
+      '<div class="muted" style="margin-bottom:12px;">Sends branded emails from your Gmail account. Use a Google <b>App Password</b> (Account → Security → 2-Step Verification → App passwords), not your normal password.</div>' +
+      '<div class="grid2">' +
+        field('em-host', 'SMTP host', 'text', s.smtp.host) +
+        field('em-port', 'Port', 'number', s.smtp.port) +
+      '</div>' +
+      '<div class="grid2">' +
+        field('em-user', 'SMTP username (Gmail address)', 'text', s.smtp.user) +
+        '<div class="field"><label for="em-pass">App password</label>' +
+          '<input id="em-pass" type="password" placeholder="' + (s.smtp.hasPassword ? '•••••••• (leave blank to keep)' : 'your 16-character app password') + '"></div>' +
+      '</div>' +
+      '<div class="grid2">' +
+        field('em-fromname', 'From name', 'text', s.from.name) +
+        field('em-fromemail', 'From email (blank = SMTP username)', 'text', s.from.email) +
+      '</div>' +
+      '<label class="toggle-row"><input type="checkbox" id="em-secure"' + (s.smtp.secure ? ' checked' : '') + '> Use SSL/TLS (recommended for port 465)</label>' +
+      '<div class="section-title">Send an email on these events</div>' + toggles +
+      '<hr>' +
+      '<div class="row-flex" style="gap:10px;flex-wrap:wrap;">' +
+        '<button class="btn btn-primary" id="em-save">Save settings</button>' +
+        '<input id="em-testto" placeholder="test recipient (optional)" style="flex:1;min-width:180px;padding:9px 12px;border:1px solid #dbe2df;border-radius:10px;font-size:14px;">' +
+        '<button class="btn btn-light" id="em-test">Send test email</button>' +
+      '</div>' +
+      '<div id="em-note" class="muted" style="margin-top:8px;"></div>' +
+      '<div class="section-title">Send a message to a user</div>' +
+      (userOpts
+        ? '<div class="grid2">' +
+            '<div class="field"><label for="em-touser">Recipient</label><select id="em-touser">' + userOpts + '</select></div>' +
+            '<div class="field"><label for="em-subject">Subject</label><input id="em-subject" type="text"></div>' +
+          '</div>' +
+          '<div class="field"><label for="em-message">Message</label><textarea id="em-message" rows="4" placeholder="Write your message…"></textarea></div>' +
+          '<button class="btn btn-primary" id="em-send">Send email</button>'
+        : '<div class="muted">No users with an email address on file yet.</div>');
+
+    el('em-save').addEventListener('click', saveEmail);
+    el('em-test').addEventListener('click', testEmail);
+    if (el('em-send')) el('em-send').addEventListener('click', sendCompose);
+  }
+  function collectEmailBody() {
+    var events = {};
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ev]'), function (c) { events[c.getAttribute('data-ev')] = c.checked; });
+    var body = {
+      enabled: el('em-enabled').checked,
+      smtp: {
+        host: el('em-host').value.trim(),
+        port: Number(el('em-port').value) || 465,
+        secure: el('em-secure').checked,
+        user: el('em-user').value.trim(),
+      },
+      from: { name: el('em-fromname').value.trim(), email: el('em-fromemail').value.trim() },
+      events: events,
+    };
+    var pass = el('em-pass').value;
+    if (pass) body.smtp.pass = pass; // only send when changed
+    return body;
+  }
+  async function loadEmail() {
+    try {
+      var data = await api('/api/admin/email');
+      renderEmailCard(data.settings);
+    } catch (e) {
+      el('email-card').innerHTML = '<div class="approvals-empty">Could not load email settings.</div>';
+    }
+  }
+  async function saveEmail() {
+    var btn = el('em-save'); btn.disabled = true;
+    try {
+      var data = await api('/api/admin/email', 'PATCH', collectEmailBody());
+      toast('Email settings saved');
+      renderEmailCard(data.settings);
+    } catch (e) { toast(e.message, true); btn.disabled = false; }
+  }
+  async function testEmail() {
+    var btn = el('em-test'); btn.disabled = true;
+    var note = el('em-note'); note.textContent = 'Sending test…';
+    try {
+      // Save first so the test uses the latest values.
+      await api('/api/admin/email', 'PATCH', collectEmailBody());
+      var data = await api('/api/admin/email', 'POST', { action: 'test', to: el('em-testto').value.trim() });
+      note.textContent = data.note + ' → ' + data.to;
+      toast(data.live ? 'Test email sent' : 'Previewed (SMTP not configured)');
+    } catch (e) { note.textContent = ''; toast(e.message, true); } finally { btn.disabled = false; }
+  }
+  async function sendCompose() {
+    var btn = el('em-send'); btn.disabled = true;
+    try {
+      var body = { action: 'send', userId: el('em-touser').value, subject: el('em-subject').value.trim(), message: el('em-message').value.trim() };
+      if (!body.subject || !body.message) throw new Error('Subject and message are required');
+      var data = await api('/api/admin/email', 'POST', body);
+      toast(data.live ? 'Email sent' : 'Previewed (SMTP not configured)');
+      el('em-subject').value = ''; el('em-message').value = '';
+    } catch (e) { toast(e.message, true); } finally { btn.disabled = false; }
+  }
+
   /* ---------- small field builders ---------- */
   function field(id, label, type, value) {
     return '<div class="field"><label for="' + id + '">' + esc(label) + '</label>' +
@@ -510,7 +627,8 @@
     el('new-user-btn').addEventListener('click', renderNewUser);
     var refresh = el('approvals-refresh');
     if (refresh) refresh.addEventListener('click', loadApprovals);
-    loadUsers();
+    await loadUsers();      // populate state.users before the email compose dropdown builds
     loadApprovals();
+    loadEmail();
   })();
 })();

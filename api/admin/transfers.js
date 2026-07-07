@@ -6,6 +6,7 @@
 // completed. Rejecting leaves balances untouched and marks the legs rejected.
 const { collections } = require('../_lib/db');
 const { requireAdmin, json, readBody } = require('../_lib/auth');
+const { sendEventEmail } = require('../_lib/email');
 
 // Apply a signed delta to one account of one user; returns the new balance (cents).
 async function adjustBalance(users, userId, accountId, deltaCents) {
@@ -83,8 +84,22 @@ module.exports = async (req, res) => {
     const legs = await transactions.find({ transferId, status: 'pending' }).toArray();
     if (!legs.length) return json(res, 404, { error: 'No pending transfer found (already handled?)' });
 
+    // Summarize the transfer for the customer notification.
+    const debit = legs.find((l) => l.amount < 0);
+    const credit = legs.find((l) => l.amount > 0);
+    const primary = debit || credit;
+    const emailData = {
+      kind: primary.kind || '',
+      meta: primary.meta || {},
+      amountCents: Math.abs(primary.amount),
+      direction: primary.amount > 0 ? 'in' : 'out',
+      transferId,
+    };
+    const owner = await users.findOne({ _id: primary.userId });
+
     if (action === 'reject') {
       await transactions.updateMany({ transferId, status: 'pending' }, { $set: { status: 'rejected' } });
+      await sendEventEmail(owner, 'transferRejected', emailData);
       return json(res, 200, { ok: true, status: 'rejected' });
     }
 
@@ -96,6 +111,7 @@ module.exports = async (req, res) => {
         { $set: { status: 'completed', balanceAfter: newBalance, date: leg.date || new Date() } }
       );
     }
+    await sendEventEmail(owner, 'transferApproved', emailData);
     return json(res, 200, { ok: true, status: 'completed' });
   }
 
