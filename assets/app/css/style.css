@@ -5334,3 +5334,10 @@ body.theme-dark .zl-recip { border-color: rgba(255,255,255,.06); }
 body.theme-dark .zl-recip-name { color: #eef2ef; }
 body.theme-dark .zl-faq { border-color: rgba(255,255,255,.06); }
 body.theme-dark .zl-faq-q { color: #eef2ef; }
+
+/* Compact app header + greeting: the bare menu-icon header wastes vertical
+   space, so shrink it and pull the page title up closer to the icon. */
+.header.header-logo-app { height: 42px !important; }
+.header.header-logo-app .header-icon,
+.header.header-logo-app .header-icon-1 { height: 42px; line-height: 42px; }
+.page-content .page-title { margin-top: 4px !important; }
