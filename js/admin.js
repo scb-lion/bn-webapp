@@ -520,12 +520,16 @@
             '<div class="field"><label for="em-subject">Subject</label><input id="em-subject" type="text"></div>' +
           '</div>' +
           '<div class="field"><label for="em-message">Message</label><textarea id="em-message" rows="4" placeholder="Write your message…"></textarea></div>' +
-          '<button class="btn btn-primary" id="em-send">Send email</button>'
+          '<div class="row-flex" style="gap:10px;flex-wrap:wrap;">' +
+            '<button class="btn btn-primary" id="em-send">Send email</button>' +
+            '<button class="btn btn-light" id="em-copy" title="Copy the branded HTML for this message">Copy HTML template</button>' +
+          '</div>'
         : '<div class="muted">No users with an email address on file yet.</div>');
 
     el('em-save').addEventListener('click', saveEmail);
     el('em-test').addEventListener('click', testEmail);
     if (el('em-send')) el('em-send').addEventListener('click', sendCompose);
+    if (el('em-copy')) el('em-copy').addEventListener('click', copyCompose);
   }
   function collectEmailBody() {
     var events = {};
@@ -584,6 +588,24 @@
       toast(data.live ? 'Email sent' : 'Previewed (SMTP not configured)');
       el('em-subject').value = ''; el('em-message').value = '';
     } catch (e) { toast(e.message, true); } finally { btn.disabled = false; }
+  }
+  async function copyCompose() {
+    var btn = el('em-copy'); btn.disabled = true;
+    try {
+      var body = { action: 'preview', userId: el('em-touser').value, subject: el('em-subject').value.trim(), message: el('em-message').value.trim() };
+      if (!body.subject || !body.message) throw new Error('Subject and message are required');
+      var data = await api('/api/admin/email', 'POST', body);
+      await copyText(data.html);
+      toast('HTML template copied to clipboard');
+    } catch (e) { toast(e.message, true); } finally { btn.disabled = false; }
+  }
+  // Clipboard write with a legacy fallback (non-secure contexts / older browsers).
+  async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand('copy'); } finally { document.body.removeChild(ta); }
   }
 
   /* ---------- small field builders ---------- */

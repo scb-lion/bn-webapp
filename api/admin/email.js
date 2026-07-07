@@ -6,7 +6,7 @@
 const { ObjectId } = require('mongodb');
 const { collections } = require('../_lib/db');
 const { requireAdmin, json, readBody } = require('../_lib/auth');
-const { getEmailSettings, saveEmailSettings, isConfigured, sendTestEmail, sendCustomEmail } = require('../_lib/email');
+const { getEmailSettings, saveEmailSettings, isConfigured, sendTestEmail, sendCustomEmail, renderCustomEmail } = require('../_lib/email');
 const { getAuthSettings, saveAuthSettings } = require('../_lib/otp');
 
 // Never expose the stored SMTP password; report only whether one is set.
@@ -81,7 +81,7 @@ module.exports = async (req, res) => {
       }
     }
 
-    if (action === 'send') {
+    if (action === 'send' || action === 'preview') {
       const subject = String(body.subject || '').trim();
       const message = String(body.message || '').trim();
       if (!subject || !message) return json(res, 400, { error: 'Subject and message are required' });
@@ -90,6 +90,10 @@ module.exports = async (req, res) => {
       const { users } = await collections();
       const user = await users.findOne({ _id });
       if (!user) return json(res, 404, { error: 'User not found' });
+      if (action === 'preview') {
+        const html = await renderCustomEmail(user, subject, message);
+        return json(res, 200, { ok: true, html });
+      }
       if (!user.email) return json(res, 400, { error: 'That user has no email address on file' });
       try {
         const r = await sendCustomEmail(user, subject, message);

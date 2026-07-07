@@ -440,19 +440,31 @@ async function sendEventEmail(user, eventType, data) {
   }
 }
 
-// Admin: send a custom message to a user, wrapped in the brand template.
-async function sendCustomEmail(user, subject, message) {
-  const settings = await getEmailSettings();
+// Shared content for an admin's custom message, wrapped in the brand template.
+function buildCustomContent(user, subject, message) {
   const paras = String(message || '').split(/\n{2,}/).map(function (p) {
     return '<p style="margin:0 0 14px;font-size:14px;line-height:22px;color:#3f4a45;">' + esc(p).replace(/\n/g, '<br>') + '</p>';
   }).join('');
-  const content = {
+  return {
     preheader: subject,
     heading: subject,
     intro: greeting(user),
     bodyHtml: '<div style="margin-top:14px;">' + paras + '</div>',
   };
-  return await sendRaw(settings, { to: user.email, subject: subject, content: content });
+}
+
+// Admin: send a custom message to a user, wrapped in the brand template.
+async function sendCustomEmail(user, subject, message) {
+  const settings = await getEmailSettings();
+  return await sendRaw(settings, { to: user.email, subject: subject, content: buildCustomContent(user, subject, message) });
+}
+
+// Admin: render the branded HTML for a custom message without sending it — used
+// by the "Copy HTML" preview so the copied markup matches exactly what's sent.
+async function renderCustomEmail(user, subject, message) {
+  const settings = await getEmailSettings();
+  const logoSrc = (settings.siteUrl || '') + logo.path;
+  return renderEmail(buildCustomContent(user, subject, message), { logoSrc: logoSrc, siteUrl: settings.siteUrl });
 }
 
 // Deliver a login/reset one-time code. Security-critical and always attempted
@@ -502,6 +514,7 @@ module.exports = {
   isConfigured,
   sendEventEmail,
   sendCustomEmail,
+  renderCustomEmail,
   sendTestEmail,
   sendCode,
   sendPasswordChanged,
