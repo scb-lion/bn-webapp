@@ -11,6 +11,7 @@ const { collections } = require('../_lib/db');
 const { requireAdmin, json, readBody } = require('../_lib/auth');
 const { publicTxn } = require('../_lib/shape');
 const { toCents, genRef } = require('../_lib/util');
+const { sendEventEmail } = require('../_lib/email');
 
 function oid(id) {
   try { return new ObjectId(String(id)); } catch { return null; }
@@ -70,6 +71,17 @@ module.exports = async (req, res) => {
     };
     const result = await transactions.insertOne(doc);
     doc._id = result.insertedId;
+
+    // Notify the customer of the posted transaction (best-effort, never fatal).
+    await sendEventEmail(user, 'transactionPosted', {
+      amountCents: amount,
+      description: doc.description,
+      counterparty: doc.counterparty,
+      accountName: (acct.name || acct.type) + ' ••' + String(acct.number || acct.id).slice(-4),
+      balanceAfter: newBalance,
+      date: doc.date,
+    });
+
     return json(res, 201, { transaction: publicTxn(doc) });
   }
 

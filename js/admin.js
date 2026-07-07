@@ -418,9 +418,10 @@
 
   /* ---------- email automation settings + manual send ---------- */
   var EVENT_LABELS = [
-    ['transferSubmitted', 'Transfer / Zelle submitted (pending)'],
-    ['transferApproved', 'Transfer / Zelle approved (completed)'],
-    ['transferRejected', 'Transfer / Zelle rejected'],
+    ['transferSubmitted', 'Transfer / Zelle / deposit submitted (pending)'],
+    ['transferApproved', 'Transfer / Zelle / deposit approved (completed)'],
+    ['transferRejected', 'Transfer / Zelle / deposit rejected'],
+    ['transactionPosted', 'Transaction posted to an account (admin)'],
     ['login', 'New sign-in alert'],
   ];
   function renderEmailCard(s) {

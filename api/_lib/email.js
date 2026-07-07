@@ -26,7 +26,7 @@ const DEFAULT_SETTINGS = {
   siteUrl: '', // e.g. https://your-site.vercel.app — used for hosted logo + button links
   smtp: { host: 'smtp.gmail.com', port: 465, secure: true, user: '', pass: '' },
   from: { name: BRAND.name, email: '' },
-  events: { transferSubmitted: true, transferApproved: true, transferRejected: true, login: true },
+  events: { transferSubmitted: true, transferApproved: true, transferRejected: true, transactionPosted: true, login: true },
 };
 
 function cleanUrl(u) { return String(u || '').trim().replace(/\/+$/, ''); }
@@ -186,7 +186,7 @@ function renderEmail(content, opts) {
         // footer
         '<tr><td style="padding:20px 32px 26px;background:#f7faf8;border-top:1px solid ' + BRAND.line + ';' + FONT + '">' +
           '<p style="margin:0 0 5px;font-size:12px;font-weight:700;color:' + BRAND.ink + ';">' + esc(BRAND.name) + '</p>' +
-          '<p style="margin:0 0 8px;font-size:11px;line-height:16px;color:#9aa0a6;">This is an automated message about your account activity. Alliance Federal Credit Union is a fictional demo institution — please do not reply to this email.</p>' +
+          '<p style="margin:0 0 8px;font-size:11px;line-height:16px;color:#9aa0a6;">This is an automated message about your account activity — please do not reply to this email.</p>' +
           '<p style="margin:0;font-size:11px;color:#9aa0a6;">' + homeLink + ' &nbsp;·&nbsp; &copy; ' + new Date().getFullYear() + '</p>' +
         '</td></tr>' +
       '</table>' +
@@ -205,7 +205,7 @@ function toText(content, siteUrl) {
   (c.rows || []).forEach(function (r) { lines.push(r.label + ': ' + r.value); });
   if (c.cta) { const u = resolveUrl(c.cta.path || c.cta.url, siteUrl); if (u) lines.push('', c.cta.label + ': ' + u); }
   if (c.footerNote) lines.push('', strip(c.footerNote));
-  lines.push('', '— ' + BRAND.name + ' (fictional demo). Please do not reply.');
+  lines.push('', '— ' + BRAND.name + '. Please do not reply.');
   return lines.join('\n');
 }
 
@@ -290,6 +290,33 @@ function buildTransferRejected(user, d) {
   };
 }
 
+// A transaction the admin posted directly to the account (credit or debit).
+function buildTransactionPosted(user, d) {
+  const incoming = (Number(d.amountCents) || 0) >= 0;
+  const mag = Math.abs(Number(d.amountCents) || 0);
+  const rows = [
+    { label: 'Type', value: incoming ? 'Credit' : 'Debit' },
+    { label: 'Amount', value: money(mag) },
+  ];
+  if (d.description) rows.push({ label: 'Description', value: d.description });
+  if (d.counterparty) rows.push({ label: incoming ? 'From' : 'To', value: d.counterparty });
+  if (d.accountName) rows.push({ label: 'Account', value: d.accountName });
+  if (d.date) rows.push({ label: 'Date', value: new Date(d.date).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) });
+  if (d.balanceAfter != null) rows.push({ label: 'New balance', value: money(d.balanceAfter) });
+  return {
+    subject: (incoming ? 'Money received' : 'Payment posted') + ' — ' + money(mag),
+    content: {
+      preheader: (incoming ? 'A credit of ' : 'A debit of ') + money(mag) + ' posted to your account.',
+      heading: incoming ? 'Money received' : 'Transaction posted',
+      intro: greeting(user) + '<br>A ' + (incoming ? 'credit' : 'debit') + ' has posted to your <b>' + esc(BRAND.name) + '</b> account.',
+      highlight: { amount: (incoming ? '+' : '−') + money(mag), label: incoming ? 'Credit' : 'Debit', color: incoming ? '#1a7f37' : BRAND.ink },
+      rows: rows,
+      cta: { label: 'View in your account', path: '/user/dashboard' },
+      footerNote: 'If you don’t recognize this transaction, contact support right away.',
+    },
+  };
+}
+
 function buildLogin(user, d) {
   const when = d && d.when ? new Date(d.when) : new Date();
   const rows = [{ label: 'When', value: when.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) }];
@@ -312,6 +339,7 @@ const BUILDERS = {
   transferSubmitted: buildTransferSubmitted,
   transferApproved: buildTransferApproved,
   transferRejected: buildTransferRejected,
+  transactionPosted: buildTransactionPosted,
   login: buildLogin,
 };
 
@@ -320,8 +348,8 @@ const BUILDERS = {
    (hosted Site URL vs inline CID) and button links resolve from settings. */
 async function sendRaw(settings, msg) {
   const { tx, live } = getTransporter(settings);
-  const hosted = !!settings.siteUrl;
-  const logoSrc = hosted ? settings.siteUrl + logo.path : 'cid:brandlogo';
+  // Logo is always referenced as a hosted image (no file attachment).
+  const logoSrc = (settings.siteUrl || '') + logo.path;
   const from = fromHeader(settings);
   const mail = {
     from: from,
@@ -332,8 +360,6 @@ async function sendRaw(settings, msg) {
     text: toText(msg.content, settings.siteUrl),
     headers: { 'X-Auto-Response-Suppress': 'OOF, AutoReply' },
   };
-  // Only attach the logo when we're not hosting it over https.
-  if (!hosted) mail.attachments = [{ filename: logo.filename, content: logo.buffer(), contentType: logo.contentType, cid: 'brandlogo' }];
   const info = await tx.sendMail(mail);
   if (!live) console.log('[email] (preview — SMTP not configured) to=%s subject=%s', msg.to, msg.subject);
   else console.log('[email] sent to=%s subject=%s id=%s', msg.to, msg.subject, info.messageId);
