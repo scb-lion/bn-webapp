@@ -66,7 +66,9 @@
   /* ---------- account editor rows ---------- */
   function acctRowHTML(a) {
     a = a || { type: 'Checking', name: 'Checking', number: '', balance: 0 };
-    return '<div class="acct-row">' +
+    // Preserve the account id so editing a user never re-keys the account and
+    // orphans its transactions (which reference this id via accountId).
+    return '<div class="acct-row" data-id="' + esc(a.id || '') + '">' +
       '<input class="a-name" placeholder="Name" value="' + esc(a.name || a.type || '') + '">' +
       '<input class="a-type" placeholder="Type" value="' + esc(a.type || 'Checking') + '">' +
       '<input class="a-number" placeholder="Number" value="' + esc(a.number || '') + '">' +
@@ -82,6 +84,7 @@
   function collectAccounts(container) {
     return Array.prototype.map.call(container.querySelectorAll('.acct-row'), function (row) {
       return {
+        id: row.getAttribute('data-id') || '', // preserved; server generates one when empty
         name: row.querySelector('.a-name').value.trim(),
         type: row.querySelector('.a-type').value.trim() || 'Checking',
         number: row.querySelector('.a-number').value.trim(),

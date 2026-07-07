@@ -41,34 +41,36 @@
       d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
   function emptyState(msg, icon) {
-    return '<div class="text-center py-4"><i class="fa-solid ' + (icon || 'fa-receipt') +
+    return '<div class="text-center py-4"><i class="fas ' + (icon || 'fa-receipt') +
       '" style="font-size:26px;color:#b9c1bd;"></i>' +
       '<p class="color-theme font-12 mt-2 mb-0">' + esc(msg) + '</p></div>';
   }
   function acctKind(a) { return /sav/i.test(a.type || '') ? 'save' : 'check'; }
-  // Pick a category icon + colour from a transaction's text.
+  // Pick a category icon + colour from a transaction's text. Icon names are the
+  // classic (fa5) set with the `fas` prefix — the loaded Font Awesome build does
+  // not alias the newer `fa-solid` prefix.
   function txnIcon(t) {
     var s = ((t.description || '') + ' ' + (t.counterparty || '')).toLowerCase();
     var map = [
-      [/payroll|direct deposit|opening deposit|deposit/, 'fa-arrow-down-long', '#e6f4ea', '#1a7f37'],
-      [/interest/, 'fa-percent', '#e6f4ea', '#1a7f37'],
-      [/zelle|transfer/, 'fa-right-left', '#eef1fb', '#3b5bdb'],
-      [/rent|apartment|mortgage/, 'fa-house', '#fdeef0', '#c0392b'],
-      [/grocery|market|whole foods|trader|kroger|aldi|food/, 'fa-cart-shopping', '#fef4e6', '#c47f17'],
+      [/payroll|direct deposit|opening deposit|deposit/, 'fa-arrow-down', '#e6f4ea', '#1a7f37'],
+      [/interest/, 'fa-coins', '#e6f4ea', '#1a7f37'],
+      [/zelle|transfer/, 'fa-exchange-alt', '#eef1fb', '#3b5bdb'],
+      [/rent|apartment|mortgage/, 'fa-home', '#fdeef0', '#c0392b'],
+      [/grocery|market|whole foods|trader|kroger|aldi|food/, 'fa-shopping-cart', '#fef4e6', '#c47f17'],
       [/coffee|starbucks|restaurant|panera|chipotle|olive garden|dining/, 'fa-mug-hot', '#fbeee6', '#b5651d'],
       [/fuel|shell|chevron|gas/, 'fa-gas-pump', '#eef6f2', '#0b8a45'],
       [/netflix|spotify|streaming|hulu|disney/, 'fa-play', '#f3ebfb', '#7b3fe4'],
       [/electric|energy|internet|spectrum|water|utility|phone|verizon|bill/, 'fa-bolt', '#fff7e0', '#b8860b'],
-      [/amazon|online|purchase|store/, 'fa-bag-shopping', '#eef1fb', '#3b5bdb'],
-      [/atm|withdrawal/, 'fa-money-bill-wave', '#f0f2f1', '#5a6560'],
+      [/amazon|online|purchase|store/, 'fa-shopping-bag', '#eef1fb', '#3b5bdb'],
+      [/atm|withdrawal/, 'fa-money-bill', '#f0f2f1', '#5a6560'],
       [/gym|fitness/, 'fa-dumbbell', '#eef1fb', '#3b5bdb'],
-      [/pharmacy|cvs|walgreens|health/, 'fa-prescription-bottle-medical', '#fdeef0', '#c0392b'],
+      [/pharmacy|cvs|walgreens|health/, 'fa-prescription-bottle', '#fdeef0', '#c0392b'],
       [/uber|lyft|ride|transit/, 'fa-car', '#f0f2f1', '#5a6560'],
     ];
     for (var i = 0; i < map.length; i++) if (map[i][0].test(s)) return { icon: map[i][1], bg: map[i][2], fg: map[i][3] };
     return (Number(t.amount) || 0) >= 0
-      ? { icon: 'fa-arrow-down-long', bg: '#e6f4ea', fg: '#1a7f37' }
-      : { icon: 'fa-arrow-up-long', bg: '#f0f2f1', fg: '#5a6560' };
+      ? { icon: 'fa-arrow-down', bg: '#e6f4ea', fg: '#1a7f37' }
+      : { icon: 'fa-arrow-up', bg: '#f0f2f1', fg: '#5a6560' };
   }
   // Group a date-desc list into day buckets with human labels.
   function dayKey(d) { return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); }
@@ -182,7 +184,7 @@
     return (
       '<a href="/user/transaction/detail?id=' + encodeURIComponent(t.id) + '" class="txn-row">' +
         '<div class="d-flex align-items-center">' +
-          '<div class="txn-ic" style="background:' + ic.bg + ';color:' + ic.fg + ';"><i class="fa-solid ' + ic.icon + '"></i></div>' +
+          '<div class="txn-ic" style="background:' + ic.bg + ';color:' + ic.fg + ';"><i class="fas ' + ic.icon + '"></i></div>' +
           '<div class="ps-2" style="min-width:0;flex:1;">' +
             '<h5 class="txn-desc">' + esc(t.description) + '</h5>' +
             '<span class="txn-date">' + esc(fmtDateShort(t.date)) + '</span>' +
@@ -200,7 +202,7 @@
     var masked = '•••• ' + String(a.number || '').slice(-4);
     return (
       '<a href="/user/account?num=' + encodeURIComponent(a.number) + '" class="acct-card acct-' + acctKind(a) + '">' +
-        '<div class="ac-top"><span>' + esc(a.type) + '</span><i class="fa-solid fa-building-columns"></i></div>' +
+        '<div class="ac-top"><span>' + esc(a.type) + '</span><i class="fas fa-university"></i></div>' +
         '<div><div class="ac-bal">$' + money(a.balance) + '</div>' +
         '<div class="ac-sub"><span>' + esc(a.name || a.type) + '</span><span class="ac-num">' + esc(masked) + '</span></div></div>' +
       '</a>'
@@ -257,7 +259,7 @@
     var masked = '•••• ' + String(acct.number || '').slice(-4);
     setContent(shell(acct.name || 'Account',
       '<div class="acct-stack"><div class="acct-card acct-' + acctKind(acct) + '" style="min-height:132px;">' +
-        '<div class="ac-top"><span>' + esc(acct.type) + '</span><i class="fa-solid fa-building-columns"></i></div>' +
+        '<div class="ac-top"><span>' + esc(acct.type) + '</span><i class="fas fa-university"></i></div>' +
         '<div><div class="ac-bal" style="font-size:30px;">$' + money(acct.balance) + '</div>' +
         '<div class="ac-sub"><span>Available balance</span><span class="ac-num">' + esc(masked) + '</span></div></div>' +
       '</div></div>' +

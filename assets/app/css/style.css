@@ -5227,8 +5227,7 @@ body.theme-dark .skel { background: #2a2f2c; background-image: linear-gradient(9
 .acct-card .ac-sub { display: flex; align-items: center; justify-content: space-between; font-size: 12px; opacity: .9; gap: 8px; }
 .acct-card .ac-sub span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .acct-card .ac-num { letter-spacing: .08em; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.acct-card.acct-skel { background: rgba(255,255,255,.15); box-shadow: none; }
-.acct-card.acct-skel .skel { background: rgba(255,255,255,.32); background-image: linear-gradient(90deg, rgba(255,255,255,.22) 0, rgba(255,255,255,.5) 60px, rgba(255,255,255,.22) 120px); background-size: 420px 100%; }
+.acct-card.acct-skel { background: #e9edeb; box-shadow: none; }
 
 /* Transaction rows with a category icon */
 .txn-list .txn-row { display: block; text-decoration: none; padding: 10px 0; }
