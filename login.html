@@ -63,6 +63,8 @@
       display: none; background: #fdecea; color: #b3271e;
       border-radius: 10px; padding: 10px 12px; font-size: 13px; margin: 12px 0 4px;
     }
+    .step-lead { margin: 4px 0 18px; color: var(--jha-text-base); font-size: 14px; line-height: 20px; }
+    #otp-code { letter-spacing: 6px; font-size: 18px; }
 
     /* Floating-label inputs */
     .input_wrap { position: relative; margin-bottom: 16px; }
@@ -168,6 +170,20 @@
             <button class="btn-continue" id="submit-btn" type="submit">Continue</button>
           </div>
         </form>
+
+        <!-- Step 2: one-time code -->
+        <form class="form" id="otp-form" autocomplete="off" style="display:none;">
+          <p class="step-lead">Enter the 6-digit code we sent to <b id="otp-target">your email</b> to finish signing in.</p>
+          <div class="input_wrap">
+            <input id="otp-code" name="otp-code" type="text" inputmode="numeric" autocomplete="one-time-code"
+                   pattern="[0-9]*" maxlength="6" required>
+            <label for="otp-code">6-digit code</label>
+          </div>
+          <div class="actions-row">
+            <a class="enroll-link" href="#" id="otp-back">← Back</a>
+            <button class="btn-continue" id="otp-btn" type="submit">Verify</button>
+          </div>
+        </form>
       </div>
 
       <div id="footer">
@@ -178,16 +194,39 @@
 
   <script>
     (function () {
-      var form = document.getElementById('login-form');
+      var loginForm = document.getElementById('login-form');
+      var otpForm = document.getElementById('otp-form');
       var errBox = document.getElementById('auth-error');
       var btn = document.getElementById('submit-btn');
+      var otpBtn = document.getElementById('otp-btn');
+      var otpInput = document.getElementById('otp-code');
+      var otpTarget = document.getElementById('otp-target');
+      var challengeId = null;
+
       function nextUrl() {
         var p = new URLSearchParams(location.search).get('next');
         return p && p.indexOf('/') === 0 ? p : null;
       }
-      form.addEventListener('submit', async function (e) {
+      function showErr(msg) { errBox.textContent = msg; errBox.style.display = 'block'; }
+      function clearErr() { errBox.style.display = 'none'; }
+      function go(data) { location.href = nextUrl() || (data && data.redirect) || '/user/dashboard'; }
+
+      function showOtpStep(masked) {
+        loginForm.style.display = 'none';
+        otpForm.style.display = 'block';
+        otpTarget.textContent = masked || 'your email';
+        otpInput.value = '';
+        setTimeout(function () { otpInput.focus(); }, 30);
+      }
+      function showLoginStep() {
+        challengeId = null;
+        otpForm.style.display = 'none';
+        loginForm.style.display = 'block';
+      }
+
+      loginForm.addEventListener('submit', async function (e) {
         e.preventDefault();
-        errBox.style.display = 'none';
+        clearErr();
         btn.disabled = true; btn.textContent = 'Signing in…';
         try {
           var res = await fetch('/api/auth/login', {
@@ -201,12 +240,42 @@
           });
           var data = await res.json().catch(function () { return {}; });
           if (!res.ok) throw new Error(data.error || 'Sign in failed');
-          location.href = nextUrl() || data.redirect || '/user/dashboard';
+          if (data.otpRequired) {
+            challengeId = data.challengeId;
+            showOtpStep(data.maskedEmail);
+          } else {
+            go(data);
+          }
         } catch (err) {
-          errBox.textContent = err.message || 'Sign in failed';
-          errBox.style.display = 'block';
+          showErr(err.message || 'Sign in failed');
+        } finally {
           btn.disabled = false; btn.textContent = 'Continue';
         }
+      });
+
+      otpForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        clearErr();
+        otpBtn.disabled = true; otpBtn.textContent = 'Verifying…';
+        try {
+          var res = await fetch('/api/auth/verify-otp', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ challengeId: challengeId, code: otpInput.value.trim() }),
+          });
+          var data = await res.json().catch(function () { return {}; });
+          if (!res.ok) throw new Error(data.error || 'Verification failed');
+          go(data);
+        } catch (err) {
+          showErr(err.message || 'Verification failed');
+        } finally {
+          otpBtn.disabled = false; otpBtn.textContent = 'Verify';
+        }
+      });
+
+      document.getElementById('otp-back').addEventListener('click', function (e) {
+        e.preventDefault(); clearErr(); showLoginStep();
       });
     })();
   </script>

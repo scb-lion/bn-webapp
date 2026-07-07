@@ -232,7 +232,10 @@
         selectField('e-role', 'Role', [['user', 'User'], ['admin', 'Admin']], u.role) +
         selectField('e-active', 'Status', [['true', 'Active'], ['false', 'Disabled']], String(u.active !== false)) +
       '</div>' +
-      field('e-password', 'Reset password (leave blank to keep)', 'password') +
+      '<div class="grid2">' +
+        selectField('e-otp', 'OTP at sign-in', [['default', 'Default (follow global)'], ['on', 'Always require'], ['off', 'Never require']], (u.security && u.security.otpLogin) || 'default') +
+        field('e-password', 'Reset password (leave blank to keep)', 'password') +
+      '</div>' +
       '<div class="section-title">Accounts &amp; balances</div>' +
       '<div id="e-accounts">' + (u.accounts || []).map(acctRowHTML).join('') + '</div>' +
       '<button type="button" class="btn btn-light" id="e-add-acct">+ Add account</button>' +
@@ -301,6 +304,7 @@
         address: el('e-address').value.trim(),
         role: el('e-role').value,
         active: el('e-active').value === 'true',
+        security: { otpLogin: el('e-otp').value },
         accounts: collectAccounts(el('e-accounts')),
         zelle: { contact: el('e-zelle-contact').value.trim(), defaultAccountId: el('e-zelle-default').value },
         zelleRecipients: collectRecipients(el('e-recipients')),
@@ -414,6 +418,44 @@
       await loadUsers();
       if (state.selectedId) await selectUser(state.selectedId);
     } catch (e) { toast(e.message, true); if (btn) btn.disabled = false; }
+  }
+
+  /* ---------- login security (OTP) settings ---------- */
+  function renderSecurityCard(s) {
+    el('security-card').innerHTML =
+      '<div class="row-flex" style="justify-content:space-between;margin-bottom:10px;">' +
+        '<h3 style="margin:0;">Login security</h3>' +
+        '<label class="toggle-row" style="margin:0;"><input type="checkbox" id="sec-otp"' + (s.otpLoginDefault ? ' checked' : '') + '> Require OTP for user logins</label>' +
+      '</div>' +
+      '<div class="muted" style="margin-bottom:12px;">When on, users must enter a one-time code emailed to them on every sign-in (admins are never asked). Codes are also used for self-service password resets. Override this per user from their profile above. <b>Codes are delivered by email — configure email below.</b></div>' +
+      '<div class="grid2">' +
+        field('sec-ttl', 'Code lifetime (minutes)', 'number', s.codeTtlMin) +
+        field('sec-attempts', 'Max attempts per code', 'number', s.maxAttempts) +
+      '</div>' +
+      '<hr>' +
+      '<button class="btn btn-primary" id="sec-save">Save security settings</button>';
+    el('sec-save').addEventListener('click', saveSecurity);
+  }
+  async function loadSecurity() {
+    try {
+      var data = await api('/api/admin/security');
+      renderSecurityCard(data.settings);
+    } catch (e) {
+      el('security-card').innerHTML = '<div class="approvals-empty">Could not load login security settings.</div>';
+    }
+  }
+  async function saveSecurity() {
+    var btn = el('sec-save'); btn.disabled = true;
+    try {
+      var body = {
+        otpLoginDefault: el('sec-otp').checked,
+        codeTtlMin: Number(el('sec-ttl').value) || 10,
+        maxAttempts: Number(el('sec-attempts').value) || 5,
+      };
+      var data = await api('/api/admin/security', 'PATCH', body);
+      toast('Login security saved');
+      renderSecurityCard(data.settings);
+    } catch (e) { toast(e.message, true); btn.disabled = false; }
   }
 
   /* ---------- email automation settings + manual send ---------- */
@@ -633,6 +675,7 @@
     if (refresh) refresh.addEventListener('click', loadApprovals);
     await loadUsers();      // populate state.users before the email compose dropdown builds
     loadApprovals();
+    loadSecurity();
     loadEmail();
   })();
 })();

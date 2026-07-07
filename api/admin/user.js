@@ -7,6 +7,7 @@ const { collections } = require('../_lib/db');
 const { requireAdmin, json, readBody } = require('../_lib/auth');
 const { publicUser, publicTxn } = require('../_lib/shape');
 const { toCents, genAccountId, genRecipientId } = require('../_lib/util');
+const { normalizeOverride } = require('../_lib/otp');
 
 function oid(id) {
   try { return new ObjectId(String(id)); } catch { return null; }
@@ -56,6 +57,13 @@ module.exports = async (req, res) => {
       if (body[key] !== undefined) profile[key] = String(body[key]).trim();
     }
     set.profile = profile;
+
+    // per-user OTP-login override ('default' | 'on' | 'off')
+    if (body.security && body.security.otpLogin !== undefined) {
+      const security = { ...(user.security || {}) };
+      security.otpLogin = normalizeOverride(body.security.otpLogin);
+      set.security = security;
+    }
 
     // password change
     if (body.password) {

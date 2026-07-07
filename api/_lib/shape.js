@@ -22,6 +22,9 @@ function publicUser(user) {
       defaultAccountId: (user.zelle && user.zelle.defaultAccountId) || '',
     },
     zelleRecipients: (user.zelleRecipients || []).map(publicRecipient),
+    security: {
+      otpLogin: (user.security && user.security.otpLogin) || 'default', // 'default' | 'on' | 'off'
+    },
     createdAt: user.createdAt || null,
   };
 }

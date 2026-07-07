@@ -115,7 +115,7 @@ function kindLabel(kind, meta) {
 
 /* ---------- branded base template ----------
    content = { preheader, heading, intro, rows:[{label,value}], highlight:{amount,label,color},
-               statusBadge:{label,bg,fg}, cta:{label,path}, footerNote }
+               code, codeLabel, statusBadge:{label,bg,fg}, cta:{label,path}, footerNote }
    opts    = { logoSrc, siteUrl } */
 const FONT = 'font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;';
 function resolveUrl(pathOrUrl, siteUrl) {
@@ -150,6 +150,14 @@ function renderEmail(content, opts) {
       '</td></tr></table>'
     : '';
 
+  // One-time passcode panel — large, letter-spaced, easy to read/copy.
+  const codeBlock = c.code
+    ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0 4px;"><tr><td style="background:#f2f8f4;border:1px solid #e2efe8;border-radius:14px;padding:22px 16px;text-align:center;">' +
+        '<div style="font-family:Consolas,Menlo,Monaco,monospace;font-size:34px;font-weight:800;letter-spacing:9px;color:' + BRAND.green + ';line-height:1.1;">' + esc(c.code) + '</div>' +
+        (c.codeLabel ? '<div style="font-size:12px;color:' + BRAND.muted + ';margin-top:8px;letter-spacing:.02em;">' + esc(c.codeLabel) + '</div>' : '') +
+      '</td></tr></table>'
+    : '';
+
   const cta = ctaUrl
     ? '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px auto 4px;"><tr><td style="border-radius:10px;background:' + BRAND.accent + ';">' +
         '<a href="' + esc(ctaUrl) + '" style="' + FONT + 'color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 30px;border-radius:10px;display:inline-block;">' + esc(c.cta.label) + '</a>' +
@@ -180,7 +188,7 @@ function renderEmail(content, opts) {
           (c.heading ? '<h1 style="margin:0 0 8px;font-size:21px;font-weight:800;color:' + BRAND.ink + ';letter-spacing:-.3px;">' + esc(c.heading) + '</h1>' : '') +
           (c.intro ? '<p style="margin:0;font-size:14px;line-height:22px;color:#3f4a45;">' + c.intro + '</p>' : '') +
           (c.bodyHtml || '') +
-          highlight + table + cta +
+          codeBlock + highlight + table + cta +
           (c.footerNote ? '<p style="margin:18px 0 0;font-size:12px;line-height:18px;color:' + BRAND.muted + ';">' + c.footerNote + '</p>' : '') +
         '</td></tr>' +
         // footer
@@ -201,6 +209,7 @@ function toText(content, siteUrl) {
   if (c.heading) lines.push(c.heading, '');
   if (c.intro) lines.push(strip(c.intro), '');
   if (c.bodyHtml) lines.push(strip(c.bodyHtml), '');
+  if (c.code) lines.push(c.code + (c.codeLabel ? '  (' + c.codeLabel + ')' : ''), '');
   if (c.highlight) lines.push(c.highlight.amount + (c.highlight.label ? '  (' + c.highlight.label + ')' : ''), '');
   (c.rows || []).forEach(function (r) { lines.push(r.label + ': ' + r.value); });
   if (c.cta) { const u = resolveUrl(c.cta.path || c.cta.url, siteUrl); if (u) lines.push('', c.cta.label + ': ' + u); }
@@ -335,6 +344,54 @@ function buildLogin(user, d) {
   };
 }
 
+// One-time passcode to finish signing in.
+function buildLoginCode(user, d) {
+  const ttl = Number(d && d.ttlMin) || 10;
+  return {
+    subject: 'Your sign-in code: ' + d.code,
+    content: {
+      preheader: 'Your one-time sign-in code is ' + d.code + '.',
+      heading: 'Verify your sign-in',
+      intro: greeting(user) + '<br>Use this one-time code to finish signing in to your <b>' + esc(BRAND.name) + '</b> account.',
+      code: d.code,
+      codeLabel: 'One-time code · expires in ' + ttl + ' minute' + (ttl === 1 ? '' : 's'),
+      footerNote: 'If you didn’t try to sign in, do not share this code — and consider changing your password.',
+    },
+  };
+}
+
+// One-time passcode to reset a forgotten password.
+function buildResetCode(user, d) {
+  const ttl = Number(d && d.ttlMin) || 10;
+  return {
+    subject: 'Your password reset code: ' + d.code,
+    content: {
+      preheader: 'Your password reset code is ' + d.code + '.',
+      heading: 'Reset your password',
+      intro: greeting(user) + '<br>Enter this code to reset the password on your <b>' + esc(BRAND.name) + '</b> account.',
+      code: d.code,
+      codeLabel: 'Reset code · expires in ' + ttl + ' minute' + (ttl === 1 ? '' : 's'),
+      footerNote: 'If you didn’t request a password reset, you can safely ignore this email — your password stays unchanged.',
+    },
+  };
+}
+
+// Confirmation that a password was changed.
+function buildPasswordChanged(user, d) {
+  const when = (d && d.when ? new Date(d.when) : new Date());
+  return {
+    subject: 'Your password was changed',
+    content: {
+      preheader: 'Your Alliance account password was just changed.',
+      heading: 'Password changed',
+      intro: greeting(user) + '<br>The password on your <b>' + esc(BRAND.name) + '</b> account was just changed.',
+      rows: [{ label: 'When', value: when.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) }],
+      cta: { label: 'Sign in', path: '/login' },
+      footerNote: 'If you didn’t make this change, contact support immediately.',
+    },
+  };
+}
+
 const BUILDERS = {
   transferSubmitted: buildTransferSubmitted,
   transferApproved: buildTransferApproved,
@@ -398,6 +455,30 @@ async function sendCustomEmail(user, subject, message) {
   return await sendRaw(settings, { to: user.email, subject: subject, content: content });
 }
 
+// Deliver a login/reset one-time code. Security-critical and always attempted
+// (not gated by the per-event toggles). Still non-fatal to the caller.
+async function sendCode(user, purpose, code, ttlMin) {
+  if (!user || !user.email) return { ok: false, skipped: 'no-email' };
+  const settings = await getEmailSettings();
+  const built = purpose === 'reset'
+    ? buildResetCode(user, { code: code, ttlMin: ttlMin })
+    : buildLoginCode(user, { code: code, ttlMin: ttlMin });
+  return await sendRaw(settings, { to: user.email, subject: built.subject, content: built.content });
+}
+
+// Confirmation email after a password change (best-effort, never throws).
+async function sendPasswordChanged(user) {
+  try {
+    if (!user || !user.email) return { ok: false, skipped: 'no-email' };
+    const settings = await getEmailSettings();
+    const built = buildPasswordChanged(user, { when: new Date() });
+    return await sendRaw(settings, { to: user.email, subject: built.subject, content: built.content });
+  } catch (e) {
+    console.error('[email] sendPasswordChanged failed (non-fatal):', e && e.message);
+    return { ok: false, error: e && e.message };
+  }
+}
+
 // Admin: verify the SMTP config with a self-addressed test email.
 async function sendTestEmail(to) {
   const settings = await getEmailSettings();
@@ -422,6 +503,8 @@ module.exports = {
   sendEventEmail,
   sendCustomEmail,
   sendTestEmail,
+  sendCode,
+  sendPasswordChanged,
   renderEmail, // exported for local preview/testing
   builders: BUILDERS, // exported for local preview/testing
 };

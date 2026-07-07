@@ -1,7 +1,8 @@
 const bcrypt = require('bcryptjs');
 const { collections } = require('../_lib/db');
 const { signToken, setSessionCookie, json, readBody } = require('../_lib/auth');
-const { sendEventEmail } = require('../_lib/email');
+const { sendEventEmail, sendCode } = require('../_lib/email');
+const { getAuthSettings, otpRequiredFor, createChallenge, maskEmail } = require('../_lib/otp');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' });
@@ -19,8 +20,22 @@ module.exports = async (req, res) => {
   const ok = user && user.active !== false && (await bcrypt.compare(password, user.passwordHash || ''));
   if (!ok) return json(res, 401, { error: 'Invalid username or password' });
 
-  const token = signToken(user);
-  setSessionCookie(res, token);
+  // Step-up: if this account must verify a one-time code (and has an email to
+  // receive it), don't create a session yet — email a code and ask for it.
+  const authSettings = await getAuthSettings();
+  if (otpRequiredFor(user, authSettings) && user.email) {
+    const { challengeId, code, ttlMin } = await createChallenge(user, 'login', authSettings);
+    await sendCode(user, 'login', code, ttlMin); // non-fatal
+    return json(res, 200, {
+      otpRequired: true,
+      challengeId: challengeId,
+      maskedEmail: maskEmail(user.email),
+      ttlMin: ttlMin,
+    });
+  }
+
+  // No OTP required (or no email on file) — sign in directly.
+  setSessionCookie(res, signToken(user));
 
   // Best-effort sign-in alert (skipped automatically for accounts without an email).
   const ip = String(req.headers['x-forwarded-for'] || (req.socket && req.socket.remoteAddress) || '').split(',')[0].trim();

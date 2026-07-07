@@ -6,7 +6,10 @@ const { ObjectId } = require('mongodb');
 const { collections } = require('./db');
 
 const COOKIE_NAME = 'nw_session';
-const MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+// Sessions persist "for life" — they stay valid until the user explicitly logs
+// out (which clears the cookie), at which point a fresh sign-in (with OTP, when
+// enabled) is required again.
+const MAX_AGE = 60 * 60 * 24 * 365 * 10; // ~10 years
 const SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
 const isProd = process.env.NODE_ENV === 'production';
 
