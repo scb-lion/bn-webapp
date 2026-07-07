@@ -93,6 +93,48 @@
     }).filter(function (a) { return a.number || a.name; });
   }
 
+  /* ---------- Zelle recipient editor rows ---------- */
+  function recipRowHTML(r) {
+    r = r || { id: '', name: '', contact: '' };
+    return '<div class="acct-row recip-row" data-id="' + esc(r.id || '') + '" style="grid-template-columns:1fr 1fr auto;">' +
+      '<input class="r-name" placeholder="Recipient name" value="' + esc(r.name || '') + '">' +
+      '<input class="r-contact" placeholder="Email or U.S. mobile" value="' + esc(r.contact || '') + '">' +
+      '<button type="button" class="btn btn-danger r-remove">✕</button>' +
+    '</div>';
+  }
+  function wireRecipRemovers(container) {
+    Array.prototype.forEach.call(container.querySelectorAll('.r-remove'), function (b) {
+      b.addEventListener('click', function () { b.closest('.recip-row').remove(); });
+    });
+  }
+  function collectRecipients(container) {
+    return Array.prototype.map.call(container.querySelectorAll('.recip-row'), function (row) {
+      return {
+        id: row.getAttribute('data-id') || '',
+        name: row.querySelector('.r-name').value.trim(),
+        contact: row.querySelector('.r-contact').value.trim(),
+      };
+    }).filter(function (r) { return r.name && r.contact; });
+  }
+  // Build the Zelle enrollment + recipients block for a user editor.
+  function zelleSectionHTML(u) {
+    var z = u.zelle || { contact: '', defaultAccountId: '' };
+    var opts = '<option value="">No default</option>' + (u.accounts || []).map(function (a) {
+      var sel = String(a.id) === String(z.defaultAccountId) ? ' selected' : '';
+      return '<option value="' + esc(a.id) + '"' + sel + '>' + esc(a.name || a.type) + ' · x' + esc(a.number) + '</option>';
+    }).join('');
+    return '<div class="section-title">Zelle®</div>' +
+      '<div class="grid2">' +
+        '<div class="field"><label for="e-zelle-contact">Enrolled contact</label>' +
+          '<input id="e-zelle-contact" type="text" placeholder="email or U.S. mobile" value="' + esc(z.contact || '') + '"></div>' +
+        '<div class="field"><label for="e-zelle-default">Default account</label>' +
+          '<select id="e-zelle-default">' + opts + '</select></div>' +
+      '</div>' +
+      '<div class="muted" style="margin:2px 0 6px;">Saved recipients</div>' +
+      '<div id="e-recipients">' + (u.zelleRecipients || []).map(recipRowHTML).join('') + '</div>' +
+      '<button type="button" class="btn btn-light" id="e-add-recip">+ Add recipient</button>';
+  }
+
   /* ---------- editor: create ---------- */
   function renderNewUser() {
     state.selectedId = null;
@@ -190,6 +232,7 @@
       '<div class="section-title">Accounts &amp; balances</div>' +
       '<div id="e-accounts">' + (u.accounts || []).map(acctRowHTML).join('') + '</div>' +
       '<button type="button" class="btn btn-light" id="e-add-acct">+ Add account</button>' +
+      zelleSectionHTML(u) +
       '<hr>' +
       '<div class="row-flex" style="gap:10px;"><button class="btn btn-primary" id="e-save">Save changes</button></div>' +
 
@@ -210,6 +253,12 @@
     el('e-add-acct').addEventListener('click', function () {
       accts.insertAdjacentHTML('beforeend', acctRowHTML());
       wireAcctRemovers(accts);
+    });
+    var recips = el('e-recipients');
+    wireRecipRemovers(recips);
+    el('e-add-recip').addEventListener('click', function () {
+      recips.insertAdjacentHTML('beforeend', recipRowHTML());
+      wireRecipRemovers(recips);
     });
     el('e-save').addEventListener('click', function () { saveUser(u.id); });
     el('e-delete').addEventListener('click', function () { deleteUser(u.id, u.username); });
@@ -249,6 +298,8 @@
         role: el('e-role').value,
         active: el('e-active').value === 'true',
         accounts: collectAccounts(el('e-accounts')),
+        zelle: { contact: el('e-zelle-contact').value.trim(), defaultAccountId: el('e-zelle-default').value },
+        zelleRecipients: collectRecipients(el('e-recipients')),
       };
       var pw = el('e-password').value;
       if (pw) body.password = pw;
@@ -312,7 +363,7 @@
     if (t.kind === 'internal' || t.kind === 'deposit') return t.toAccount ? ('to ' + t.toAccount.name) : '';
     if (t.kind === 'domestic') return 'to ' + (m.accountname || '') + (m.bankname ? (' · ' + m.bankname) : '');
     if (t.kind === 'wire') return 'to ' + [m.r_fname, m.r_lname].filter(Boolean).join(' ') + (m.r_bankname ? (' · ' + m.r_bankname) : '');
-    if (t.kind === 'zelle') return 'to ' + (m.contact || '');
+    if (t.kind === 'zelle') return (m.mode === 'request' ? 'from ' : 'to ') + (m.contact || '');
     return '';
   }
   function renderApprovals(list) {

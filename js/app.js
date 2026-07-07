@@ -395,15 +395,193 @@
       '<div class="mx-3"><a href="#" data-action="logout" class="btn btn-full btn-m rounded-s font-600 bg-red-dark">Log out</a></div>'));
   }
 
+  /* ---------- Zelle: activity ---------- */
+  async function renderZelleActivity(me) {
+    var res = await api('/api/transactions');
+    var data = res.ok ? await res.json() : { transactions: [] };
+    var zelle = (data.transactions || []).filter(function (t) { return t.kind === 'zelle'; });
+    var body = zelle.length
+      ? txnHistory(zelle)
+      : emptyState('No Zelle® activity yet', 'fa-exchange-alt');
+    setContent(shell('Zelle® Activity',
+      '<div class="card card-style"><div class="content">' + body + '</div></div>'));
+  }
+
+  /* ---------- Zelle: saved recipients ---------- */
+  function recipientRow(r) {
+    var initial = esc((r.name || '?').trim().charAt(0).toUpperCase());
+    return (
+      '<div class="zl-recip" data-id="' + esc(r.id) + '">' +
+        '<div class="zl-recip-av">' + initial + '</div>' +
+        '<div class="zl-recip-main"><div class="zl-recip-name">' + esc(r.name) + '</div>' +
+          '<div class="zl-recip-contact">' + esc(r.contact) + '</div></div>' +
+        '<button type="button" class="zl-recip-del" data-del="' + esc(r.id) + '" aria-label="Remove"><i class="fas fa-trash-alt"></i></button>' +
+      '</div>'
+    );
+  }
+  function recipientsListHtml(recipients) {
+    if (!recipients.length) return emptyState('No saved recipients yet', 'fa-user-friends');
+    return '<div class="zl-recip-list">' + recipients.map(recipientRow).join('') + '</div>';
+  }
+  async function renderZelleRecipients() {
+    var res = await api('/api/zelle');
+    var data = res.ok ? await res.json() : { recipients: [] };
+    var recipients = data.recipients || [];
+    setContent(shell('Recipients',
+      '<div class="card card-style"><div class="content">' +
+        '<h6 class="font-14 mb-3" style="font-weight:600!important;">Add a recipient</h6>' +
+        '<div class="zl-form-err" id="zl-err" style="display:none;color:#c0392b;font-size:13px;margin:0 0 8px;"></div>' +
+        '<input id="zl-name" class="ms-input w-input" type="text" placeholder="Recipient name" style="margin-bottom:10px;">' +
+        '<input id="zl-contact" class="ms-input w-input" type="text" placeholder="Email or U.S. mobile number" style="margin-bottom:12px;">' +
+        '<button type="button" id="zl-add" class="ms-button is-small w-inline-block"><div>Save recipient</div></button>' +
+      '</div></div>' +
+      '<div class="card card-style"><div class="content">' +
+        '<h6 class="font-14 mb-3" style="font-weight:600!important;">Saved recipients</h6>' +
+        '<div id="zl-list">' + recipientsListHtml(recipients) + '</div>' +
+      '</div></div>'));
+    wireRecipients();
+  }
+  function wireRecipients() {
+    var nameEl = q('#zl-name'), contactEl = q('#zl-contact'), addBtn = q('#zl-add'), errEl = q('#zl-err'), listEl = q('#zl-list');
+    function showErr(m) { if (errEl) { errEl.textContent = m; errEl.style.display = 'block'; } }
+    function hideErr() { if (errEl) errEl.style.display = 'none'; }
+    if (addBtn) addBtn.addEventListener('click', function () {
+      hideErr();
+      var name = (nameEl.value || '').trim(), contact = (contactEl.value || '').trim();
+      if (!name || !contact) { showErr('Enter a name and an email or U.S. mobile number'); return; }
+      addBtn.disabled = true;
+      api('/api/zelle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, contact: contact }) })
+        .then(async function (res) {
+          var data = await res.json().catch(function () { return {}; });
+          if (!res.ok) throw new Error(data.error || 'Could not save recipient');
+          if (listEl) listEl.innerHTML = recipientsListHtml(data.recipients || []);
+          nameEl.value = ''; contactEl.value = '';
+        }).catch(function (e) { showErr(e.message); }).finally(function () { addBtn.disabled = false; });
+    });
+    if (listEl) listEl.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-del]');
+      if (!btn) return;
+      var id = btn.getAttribute('data-del');
+      btn.disabled = true;
+      api('/api/zelle?id=' + encodeURIComponent(id), { method: 'DELETE' })
+        .then(async function (res) {
+          var data = await res.json().catch(function () { return {}; });
+          if (!res.ok) throw new Error(data.error || 'Could not remove recipient');
+          listEl.innerHTML = recipientsListHtml(data.recipients || []);
+        }).catch(function () { btn.disabled = false; });
+    });
+  }
+
+  /* ---------- Zelle: my QR code ---------- */
+  // Deterministic decorative QR-style matrix from the contact string. Not a
+  // scannable code — the readable contact is shown beneath it.
+  function qrMatrix(text, n) {
+    var cells = [];
+    var seed = 0;
+    for (var i = 0; i < text.length; i++) seed = (seed * 31 + text.charCodeAt(i)) >>> 0;
+    function rnd() { seed = (seed * 1103515245 + 12345) >>> 0; return (seed >>> 16) & 1; }
+    for (var r = 0; r < n; r++) { cells[r] = []; for (var c = 0; c < n; c++) cells[r][c] = rnd(); }
+    // finder patterns (top-left, top-right, bottom-left)
+    function finder(or, oc) {
+      for (var y = 0; y < 7; y++) for (var x = 0; x < 7; x++) {
+        var edge = (x === 0 || x === 6 || y === 0 || y === 6);
+        var core = (x >= 2 && x <= 4 && y >= 2 && y <= 4);
+        cells[or + y][oc + x] = (edge || core) ? 1 : 0;
+      }
+    }
+    finder(0, 0); finder(0, n - 7); finder(n - 7, 0);
+    return cells;
+  }
+  function qrSvg(text) {
+    var n = 25, cells = qrMatrix(text, n), sz = 200, cell = sz / n, rects = '';
+    for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) {
+      if (cells[r][c]) rects += '<rect x="' + (c * cell).toFixed(2) + '" y="' + (r * cell).toFixed(2) +
+        '" width="' + cell.toFixed(2) + '" height="' + cell.toFixed(2) + '"/>';
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + sz + '" height="' + sz + '" viewBox="0 0 ' + sz + ' ' + sz +
+      '" style="background:#fff;border-radius:12px;" fill="#111"><rect width="' + sz + '" height="' + sz + '" fill="#fff"/>' + rects + '</svg>';
+  }
+  function renderZelleQr(me) {
+    var contact = (me.zelle && me.zelle.contact) || '';
+    var name = me.profile.displayName || me.profile.firstName || me.username;
+    var inner = contact
+      ? '<div class="card card-style"><div class="content text-center">' +
+          '<div style="display:inline-block;padding:12px;border:1px solid #e6e9e7;border-radius:16px;background:#fff;">' + qrSvg(contact) + '</div>' +
+          '<h4 class="mt-3 mb-0">' + esc(name) + '</h4>' +
+          '<p class="color-theme font-13 mb-0" style="margin-top:4px;">' + esc(contact) + '</p>' +
+          '<p class="color-theme font-12" style="margin-top:12px;line-height:18px;">Show this code or share your Zelle® contact so others can send you money.</p>' +
+        '</div></div>'
+      : '<div class="card card-style"><div class="content text-center">' +
+          emptyState('Enroll a Zelle® contact first to get your QR code', 'fa-qrcode') +
+          '<a href="/user/zelle-preferences" class="ms-button is-small w-inline-block" style="text-decoration:none;margin-top:12px;"><div>Set up Zelle®</div></a>' +
+        '</div></div>';
+    setContent(shell('My Zelle® QR', inner));
+  }
+
+  /* ---------- Zelle: preferences ---------- */
+  function renderZellePreferences(me) {
+    var contact = (me.zelle && me.zelle.contact) || '';
+    var def = (me.zelle && me.zelle.defaultAccountId) || '';
+    var opts = '<option value="">No default</option>' + (me.accounts || []).map(function (a) {
+      var sel = String(a.id) === String(def) ? ' selected' : '';
+      return '<option value="' + esc(a.id) + '"' + sel + '>' + esc(a.type) + ' ••' + esc(String(a.number).slice(-4)) + '</option>';
+    }).join('');
+    setContent(shell('Zelle® Preferences',
+      '<div class="card card-style"><div class="content">' +
+        '<div class="zl-form-err" id="zl-err" style="display:none;color:#c0392b;font-size:13px;margin:0 0 8px;"></div>' +
+        '<div class="zl-form-ok" id="zl-ok" style="display:none;color:#0f6b3b;font-size:13px;margin:0 0 8px;"></div>' +
+        '<label class="ms-input-label">Your Zelle® contact (email or U.S. mobile)</label>' +
+        '<input id="zl-contact" class="ms-input w-input" type="text" value="' + esc(contact) + '" placeholder="name@email.com or (555) 555-5555" style="margin-bottom:14px;">' +
+        '<label class="ms-input-label">Default account for incoming money</label>' +
+        '<div class="ms-input-wrap"><select id="zl-default" class="ms-input w-select">' + opts + '</select>' +
+          '<div class="ms-select-svg w-embed"><svg xmlns="http://www.w3.org/2000/svg" height="32px" viewBox="0 0 24 24" width="32px" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M8.71 11.71l2.59 2.59c.39.39 1.02.39 1.41 0l2.59-2.59c.63-.63.18-1.71-.71-1.71H9.41c-.89 0-1.33 1.08-.7 1.71z"></path></svg></div>' +
+        '</div>' +
+        '<button type="button" id="zl-save" class="ms-button is-small w-inline-block" style="margin-top:16px;"><div>Save preferences</div></button>' +
+      '</div></div>'));
+    var saveBtn = q('#zl-save'), errEl = q('#zl-err'), okEl = q('#zl-ok');
+    if (saveBtn) saveBtn.addEventListener('click', function () {
+      if (errEl) errEl.style.display = 'none';
+      if (okEl) okEl.style.display = 'none';
+      saveBtn.disabled = true;
+      var payload = { contact: (q('#zl-contact').value || '').trim(), defaultAccountId: q('#zl-default').value || '' };
+      api('/api/zelle', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        .then(async function (res) {
+          var data = await res.json().catch(function () { return {}; });
+          if (!res.ok) throw new Error(data.error || 'Could not save preferences');
+          if (me.zelle) { me.zelle.contact = payload.contact; me.zelle.defaultAccountId = payload.defaultAccountId; }
+          if (okEl) { okEl.textContent = 'Preferences saved.'; okEl.style.display = 'block'; }
+        }).catch(function (e) { if (errEl) { errEl.textContent = e.message; errEl.style.display = 'block'; } })
+        .finally(function () { saveBtn.disabled = false; });
+    });
+  }
+
+  /* ---------- Zelle: help ---------- */
+  function renderZelleHelp() {
+    function faq(q, a) {
+      return '<div class="zl-faq"><div class="zl-faq-q">' + esc(q) + '</div><div class="zl-faq-a">' + esc(a) + '</div></div>';
+    }
+    setContent(shell('Zelle® Help',
+      '<div class="card card-style"><div class="content">' +
+        faq('What is Zelle®?', 'Zelle® is a fast, easy way to send and receive money with people you trust — using just their email address or U.S. mobile number.') +
+        faq('When will my money arrive?', 'Requests are reviewed for security. Once approved, sends and requests typically settle within minutes and appear in your activity.') +
+        faq('Why does my transfer say Pending?', 'For your protection, Zelle® transfers on this account are reviewed before they complete. You will see the status update to Completed once approved.') +
+        faq('Is it safe?', 'Only send money to people you know and trust. Neither Alliance nor Zelle® offers a protection program for authorized payments, so treat it like cash.') +
+      '</div></div>' +
+      '<div class="card card-style"><div class="content text-center">' +
+        '<p class="color-theme font-13 mb-2">Still need help?</p>' +
+        '<a href="/user/contact-support" class="ms-button is-small w-inline-block" style="text-decoration:none;"><div>Contact support</div></a>' +
+      '</div></div>'));
+  }
+
   /* ---------- transfer / deposit forms (any page with a form[data-kind]) ---------- */
   function acctOption(a) {
     return '<option value="' + esc(a.id) + '">' + esc(a.type) + ' ••' + esc(String(a.number).slice(-4)) +
       ' — $' + money(a.balance) + '</option>';
   }
-  function transferSuccess(form, kind, cents) {
+  function transferSuccess(form, kind, cents, mode) {
     var container = form.closest('.w-form') || form.parentNode;
     var labels = { internal: 'transfer', domestic: 'transfer', wire: 'wire transfer', zelle: 'Zelle payment', deposit: 'deposit' };
-    var label = labels[kind] || 'transfer';
+    var label = (kind === 'zelle' && mode === 'request') ? 'Zelle request' : (labels[kind] || 'transfer');
     container.innerHTML =
       '<div class="card card-style" style="margin-top:24px;"><div class="content text-center" style="padding:26px 18px;">' +
         '<div style="width:66px;height:66px;border-radius:50%;background:#e4f2df;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">' +
@@ -416,6 +594,9 @@
   }
   function wireTransferForm(form, me) {
     var kind = form.getAttribute('data-kind');
+    var modeInput = form.querySelector('[name="mode"]');
+    var mode = modeInput ? String(modeInput.value || '') : '';
+    var incoming = kind === 'deposit' || (kind === 'zelle' && mode === 'request');
     var fromSel = form.querySelector('[name="account_id"]');
     var toSel = form.querySelector('[name="to_account_id"]');
     var amountInput = form.querySelector('[name="amount"]');
@@ -453,7 +634,7 @@
       if (!(amt > 0)) { showError('Enter an amount greater than $0.00'); return; }
       var cents = Math.round(amt * 100);
 
-      if (kind !== 'deposit') {
+      if (!incoming) {
         var a = fromAcct();
         if (a && cents > a.balance) { showError('Amount exceeds your available balance ($' + money(a.balance) + ')'); return; }
       }
@@ -479,7 +660,7 @@
       }).then(async function (res) {
         var data = await res.json().catch(function () { return {}; });
         if (!res.ok) throw new Error(data.error || 'Transfer could not be submitted');
-        transferSuccess(form, kind, cents);
+        transferSuccess(form, kind, cents, mode);
       }).catch(function (err) {
         showError(err.message || 'Transfer could not be submitted');
         if (btn) btn.disabled = false;
@@ -505,6 +686,11 @@
       else if (/\/user\/transactions$/.test(path)) await renderTransactions();
       else if (/\/user\/transaction\/detail(\/[^/]+\/[^/]+)?$/.test(path)) await renderTransactionDetail();
       else if (/\/user\/profile$/.test(path)) renderProfile(me);
+      else if (/\/user\/zelle-activity$/.test(path)) await renderZelleActivity(me);
+      else if (/\/user\/zelle-recipients$/.test(path)) await renderZelleRecipients();
+      else if (/\/user\/zelle-qr$/.test(path)) renderZelleQr(me);
+      else if (/\/user\/zelle-preferences$/.test(path)) renderZellePreferences(me);
+      else if (/\/user\/zelle-help$/.test(path)) renderZelleHelp();
       // other pages (transfer/deposit/zelle/wire/support/messages): static, just show the name if present
       else {
         var h2 = q('.page-title h2');

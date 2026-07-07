@@ -24,6 +24,7 @@ const API_ROUTES = {
   '/api/me': 'api/me.js',
   '/api/transactions': 'api/transactions.js',
   '/api/transfers': 'api/transfers.js',
+  '/api/zelle': 'api/zelle.js',
   '/api/admin/users': 'api/admin/users.js',
   '/api/admin/user': 'api/admin/user.js',
   '/api/admin/transactions': 'api/admin/transactions.js',
@@ -117,8 +118,15 @@ async function seedDemoUser() {
 
   const cents = (d) => Math.round(d * 100);
   const dayOffset = (n) => { const d = new Date(); d.setDate(d.getDate() - n); d.setHours(9, (n * 7) % 60, 0, 0); return d; };
+  const rid = (p, len) => p + Math.random().toString(36).slice(2, 2 + len);
   const CHECKING = { id: 'chk-4021', type: 'Checking', number: '4021', name: 'Everyday Checking' };
   const SAVINGS = { id: 'sav-7788', type: 'Savings', number: '7788', name: 'Premier Savings' };
+  const zelleRecipients = [
+    { name: 'Jordan Blake', contact: 'jordan.blake@gmail.com' },
+    { name: 'Maria Lopez', contact: '(704) 555-0148' },
+    { name: 'David Chen', contact: 'd.chen@outlook.com' },
+    { name: 'Ashley Turner', contact: '(980) 555-0173' },
+  ].map((r) => ({ id: rid('rcp_', 10), ...r }));
   const moves = {
     'chk-4021': [
       [40, 'Direct Deposit — ACME CORP PAYROLL', 'ACME Corp', 2450.0],
@@ -126,11 +134,18 @@ async function seedDemoUser() {
       [35, 'Grocery Purchase', 'Whole Foods Market', -86.32],
       [33, 'Coffee', 'Starbucks', -6.75],
       [30, 'Fuel', 'Shell', -47.8], [28, 'Streaming', 'Netflix', -15.49],
-      [25, 'Online Purchase', 'Amazon', -54.2], [22, 'Zelle Received', 'John Smith', 120.0],
+      [25, 'Online Purchase', 'Amazon', -54.2],
+      [22, 'Zelle Received', 'John Smith', 120.0, { kind: 'zelle', mode: 'request', contact: 'john.smith88@gmail.com' }],
       [18, 'Restaurant', 'Chipotle', -22.35], [14, 'Phone Bill', 'Verizon Wireless', -55.0],
       [10, 'Direct Deposit — ACME CORP PAYROLL', 'ACME Corp', 2450.0],
       [6, 'ATM Withdrawal', 'ATM — Main St', -100.0], [3, 'Grocery Purchase', 'Kroger', -58.4],
       [1, 'Fuel', 'Chevron', -46.6],
+      // Zelle activity
+      [27, 'Zelle Payment', 'Jordan Blake', -75.0, { kind: 'zelle', mode: 'send', contact: 'jordan.blake@gmail.com' }],
+      [16, 'Zelle Payment', 'David Chen', -120.0, { kind: 'zelle', mode: 'send', contact: 'd.chen@outlook.com' }],
+      [8, 'Zelle Request', 'Maria Lopez', 55.0, { kind: 'zelle', mode: 'request', contact: '(704) 555-0148' }],
+      [4, 'Zelle Payment', 'Ashley Turner', -25.5, { kind: 'zelle', mode: 'send', contact: '(980) 555-0173' }],
+      [0, 'Zelle Payment', 'David Chen', -90.0, { kind: 'zelle', mode: 'send', contact: 'd.chen@outlook.com', status: 'pending' }],
     ],
     'sav-7788': [
       [40, 'Opening Deposit', '', 5000.0], [20, 'Transfer from Checking', 'Everyday Checking ••4021', 300.0],
@@ -139,18 +154,34 @@ async function seedDemoUser() {
   };
   const build = (acct) => {
     let bal = 0;
-    return moves[acct.id].slice().sort((a, b) => b[0] - a[0]).map(([n, description, counterparty, dollars]) => {
-      const amount = cents(dollars); bal += amount;
-      return { accountId: acct.id, ref: 'ref_' + Math.random().toString(36).slice(2, 12), date: dayOffset(n), description, counterparty, amount, type: amount >= 0 ? 'credit' : 'debit', balanceAfter: bal };
+    return moves[acct.id].slice().sort((a, b) => b[0] - a[0]).map(([n, description, counterparty, dollars, extra]) => {
+      const meta = extra || {};
+      const status = meta.status || 'completed';
+      const amount = cents(dollars);
+      let balanceAfter = null;
+      if (status !== 'pending') { bal += amount; balanceAfter = bal; }
+      const doc = { accountId: acct.id, ref: rid('ref_', 10), date: dayOffset(n), description, counterparty, amount, type: amount >= 0 ? 'credit' : 'debit', balanceAfter, status };
+      if (meta.kind) {
+        doc.kind = meta.kind;
+        doc.transferId = rid('tr_', 14);
+        const m = {};
+        if (meta.contact) m.contact = meta.contact;
+        if (meta.mode) m.mode = meta.mode;
+        doc.meta = m;
+      }
+      return doc;
     });
   };
   const chk = build(CHECKING), sav = build(SAVINGS);
+  const acctBal = (list) => { for (let i = list.length - 1; i >= 0; i--) if (list[i].balanceAfter != null) return list[i].balanceAfter; return 0; };
   const now = new Date();
   const res = await users.insertOne({
     username, email: 'hussy.derick@gmail.com', passwordHash: await bcrypt.hash('anonymous123$', 10),
     role: 'user', active: true,
     profile: { firstName: 'Hussy', displayName: 'Hussy Derick', photoUrl: '', phone: '+1 (704) 555-0192', address: '284 Maple Grove Ave, Charlotte, NC 28202' },
-    accounts: [{ ...CHECKING, balance: chk[chk.length - 1].balanceAfter }, { ...SAVINGS, balance: sav[sav.length - 1].balanceAfter }],
+    accounts: [{ ...CHECKING, balance: acctBal(chk) }, { ...SAVINGS, balance: acctBal(sav) }],
+    zelle: { contact: 'hussy.derick@gmail.com', defaultAccountId: CHECKING.id },
+    zelleRecipients,
     createdAt: now, updatedAt: now,
   });
   await transactions.insertMany([...chk, ...sav].map((t) => ({ ...t, userId: res.insertedId })));

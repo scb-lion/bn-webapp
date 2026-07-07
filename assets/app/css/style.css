@@ -5303,3 +5303,24 @@ body.theme-dark .txn-list .txn-row + .txn-row { border-color: rgba(255,255,255,.
 body.theme-dark .acct-wcard { background: #23282a; border-color: rgba(255,255,255,.06); }
 body.theme-dark .acct-wcard .aw-name, body.theme-dark .acct-wcard .aw-bal { color: #eef2ef; }
 body.theme-dark .ar-row .ar-v { color: #eef2ef; }
+
+/* Zelle recipients */
+.zl-recip-list { display: flex; flex-direction: column; }
+.zl-recip { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #eef1f0; }
+.zl-recip:last-child { border-bottom: 0; }
+.zl-recip-av { width: 40px; height: 40px; border-radius: 50%; background: #e6f2ea; color: #0f6b3b; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; flex: 0 0 auto; }
+.zl-recip-main { flex: 1; min-width: 0; padding-left: 12px; }
+.zl-recip-name { font-size: 15px; font-weight: 600; color: #13120f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-recip-contact { font-size: 12.5px; color: #8a8f8c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-recip-del { border: 0; background: transparent; color: #c0392b; font-size: 15px; padding: 8px; cursor: pointer; flex: 0 0 auto; }
+
+/* Zelle help FAQ */
+.zl-faq { padding: 10px 0; border-bottom: 1px solid #eef1f0; }
+.zl-faq:last-child { border-bottom: 0; }
+.zl-faq-q { font-size: 14.5px; font-weight: 600; color: #13120f; margin-bottom: 4px; }
+.zl-faq-a { font-size: 13px; color: #5a6560; line-height: 19px; }
+
+body.theme-dark .zl-recip { border-color: rgba(255,255,255,.06); }
+body.theme-dark .zl-recip-name { color: #eef2ef; }
+body.theme-dark .zl-faq { border-color: rgba(255,255,255,.06); }
+body.theme-dark .zl-faq-q { color: #eef2ef; }

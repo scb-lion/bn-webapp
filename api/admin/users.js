@@ -4,7 +4,18 @@ const bcrypt = require('bcryptjs');
 const { collections } = require('../_lib/db');
 const { requireAdmin, json, readBody } = require('../_lib/auth');
 const { publicUser } = require('../_lib/shape');
-const { toCents, genAccountId } = require('../_lib/util');
+const { toCents, genAccountId, genRecipientId } = require('../_lib/util');
+
+function normalizeRecipients(input) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((r) => ({
+      id: String(r.id || genRecipientId()),
+      name: String(r.name || '').trim().slice(0, 120),
+      contact: String(r.contact || '').trim().slice(0, 120),
+    }))
+    .filter((r) => r.name && r.contact);
+}
 
 function normalizeAccounts(input) {
   if (!Array.isArray(input)) return [];
@@ -61,6 +72,11 @@ module.exports = async (req, res) => {
         address: String(body.address || '').trim(),
       },
       accounts,
+      zelle: {
+        contact: String((body.zelle && body.zelle.contact) || '').trim().slice(0, 120),
+        defaultAccountId: String((body.zelle && body.zelle.defaultAccountId) || '').trim(),
+      },
+      zelleRecipients: normalizeRecipients(body.zelleRecipients),
       createdAt: now,
       updatedAt: now,
     };

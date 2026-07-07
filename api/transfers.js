@@ -6,7 +6,7 @@
 //   internal -> between the caller's own accounts (debit + credit legs)
 //   domestic -> to another U.S. bank (single debit leg)
 //   wire     -> international wire/ACH        (single debit leg)
-//   zelle    -> Zelle send                    (single debit leg)
+//   zelle    -> Zelle send/request            (send: debit leg; request: incoming credit)
 //   deposit  -> mobile check deposit          (single credit leg, incoming)
 const { collections } = require('./_lib/db');
 const { requireAuth, json, readBody } = require('./_lib/auth');
@@ -22,7 +22,7 @@ const META_FIELDS = {
   domestic: ['accountname', 'bankname', 'accountnum', 'accounttype'],
   wire: ['r_fname', 'r_lname', 'r_address', 'r_city', 'r_country', 'r_postal',
     'swift_code', 'iban_code', 'r_bankname', 'r_accountnum', 'r_accounttype'],
-  zelle: ['contact'],
+  zelle: ['contact', 'mode'],
   deposit: [],
 };
 
@@ -88,6 +88,10 @@ module.exports = async (req, res) => {
   if (kind === 'deposit') {
     // Incoming credit to the chosen account.
     docs = [leg(fromAcct.id, amount, description || 'Mobile Check Deposit', 'Mobile Check Deposit')];
+  } else if (kind === 'zelle' && s(body.mode).toLowerCase() === 'request') {
+    // Zelle request -> incoming credit once approved (no balance check).
+    meta.mode = 'request';
+    docs = [leg(fromAcct.id, amount, description || 'Zelle Request', counterpartyFor(kind, meta))];
   } else if (kind === 'internal') {
     const toId = s(body.toAccountId || body.to_account_id);
     const toAcct = findAcct(toId);
@@ -99,8 +103,9 @@ module.exports = async (req, res) => {
       leg(toAcct.id, amount, description || ('Transfer from ' + (fromAcct.name || fromAcct.type)), fromAcct.name || fromAcct.type),
     ];
   } else {
-    // domestic / wire / zelle -> outgoing debit
+    // domestic / wire / zelle send -> outgoing debit
     if (amount > (Number(fromAcct.balance) || 0)) return json(res, 400, { error: 'Amount exceeds available balance' });
+    if (kind === 'zelle') meta.mode = 'send';
     const labels = { domestic: 'Domestic Transfer', wire: 'Wire/ACH Transfer', zelle: 'Zelle Payment' };
     docs = [leg(fromAcct.id, -amount, description || labels[kind], counterpartyFor(kind, meta))];
   }

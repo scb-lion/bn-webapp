@@ -17,7 +17,20 @@ function publicUser(user) {
       address: user.profile?.address || '',
     },
     accounts: (user.accounts || []).map(publicAccount),
+    zelle: {
+      contact: (user.zelle && user.zelle.contact) || '',
+      defaultAccountId: (user.zelle && user.zelle.defaultAccountId) || '',
+    },
+    zelleRecipients: (user.zelleRecipients || []).map(publicRecipient),
     createdAt: user.createdAt || null,
+  };
+}
+
+function publicRecipient(r) {
+  return {
+    id: String(r.id || ''),
+    name: r.name || '',
+    contact: r.contact || '',
   };
 }
 
@@ -49,4 +62,4 @@ function publicTxn(t) {
   };
 }
 
-module.exports = { publicUser, publicAccount, publicTxn };
+module.exports = { publicUser, publicAccount, publicTxn, publicRecipient };

@@ -32,6 +32,17 @@ const SAVINGS = { id: 'sav-7788', type: 'Savings', number: '7788', name: 'Premie
 // ---- helpers ----------------------------------------------------------------
 const cents = (d) => Math.round(d * 100);
 const genRef = () => 'ref_' + Math.random().toString(36).slice(2, 14);
+const genTransferId = () => 'tr_' + Math.random().toString(36).slice(2, 16);
+const genRecipientId = () => 'rcp_' + Math.random().toString(36).slice(2, 12);
+
+// ---- Zelle enrollment + saved recipients ------------------------------------
+const ZELLE = { contact: EMAIL, defaultAccountId: CHECKING.id };
+const ZELLE_RECIPIENTS = [
+  { name: 'Jordan Blake', contact: 'jordan.blake@gmail.com' },
+  { name: 'Maria Lopez', contact: '(704) 555-0148' },
+  { name: 'David Chen', contact: 'd.chen@outlook.com' },
+  { name: 'Ashley Turner', contact: '(980) 555-0173' },
+].map((r) => ({ id: genRecipientId(), ...r }));
 function dayOffset(n) {
   const d = new Date();
   d.setDate(d.getDate() - n);
@@ -62,7 +73,7 @@ const CHECKING_MOVES = [
   [40, 'Grocery Purchase', 'Kroger', -94.67],
   [38, 'Fuel', 'Chevron', -44.25],
   [37, 'Coffee', 'Starbucks', -7.1],
-  [35, 'Zelle Received', 'John Smith', 120.0],
+  [35, 'Zelle Received', 'John Smith', 120.0, { kind: 'zelle', mode: 'request', contact: 'john.smith88@gmail.com' }],
   [34, 'ATM Withdrawal', 'ATM — Main St', -100.0],
   [33, 'Online Purchase', 'Amazon', -38.99],
   [31, 'Grocery Purchase', 'Whole Foods Market', -78.44],
@@ -92,6 +103,14 @@ const CHECKING_MOVES = [
   [3, 'Water Utility', 'City of Charlotte', -38.75],
   [2, 'Direct Deposit — ACME CORP PAYROLL', 'ACME Corp', 2450.0],
   [1, 'Grocery Purchase', 'Kroger', -58.4],
+  // Zelle activity (tagged kind:'zelle'; one still pending admin approval)
+  [50, 'Zelle Payment', 'Jordan Blake', -75.0, { kind: 'zelle', mode: 'send', contact: 'jordan.blake@gmail.com' }],
+  [39, 'Zelle Request', 'Maria Lopez', 40.0, { kind: 'zelle', mode: 'request', contact: '(704) 555-0148' }],
+  [23, 'Zelle Payment', 'David Chen', -120.0, { kind: 'zelle', mode: 'send', contact: 'd.chen@outlook.com' }],
+  [17, 'Zelle Payment', 'Ashley Turner', -25.5, { kind: 'zelle', mode: 'send', contact: '(980) 555-0173' }],
+  [10, 'Zelle Payment', 'Jordan Blake', -60.0, { kind: 'zelle', mode: 'send', contact: 'jordan.blake@gmail.com' }],
+  [2, 'Zelle Request', 'Maria Lopez', 55.0, { kind: 'zelle', mode: 'request', contact: '(704) 555-0148' }],
+  [0, 'Zelle Payment', 'David Chen', -90.0, { kind: 'zelle', mode: 'send', contact: 'd.chen@outlook.com', status: 'pending' }],
 ];
 
 const SAVINGS_MOVES = [
@@ -103,13 +122,18 @@ const SAVINGS_MOVES = [
 ];
 
 // Turn movement rows into transaction docs with a correct running balanceAfter.
+// A row may carry an optional 5th element of extra fields:
+//   { kind, mode, contact, status }.  A 'pending' row does NOT move the balance.
 function build(account, moves) {
   const chronological = moves.slice().sort((a, b) => b[0] - a[0]); // oldest first
   let balance = 0;
-  const txns = chronological.map(([n, description, counterparty, dollars]) => {
+  const txns = chronological.map(([n, description, counterparty, dollars, extra]) => {
+    const meta = extra || {};
+    const status = meta.status || 'completed';
     const amount = cents(dollars);
-    balance += amount;
-    return {
+    let balanceAfter = null;
+    if (status !== 'pending') { balance += amount; balanceAfter = balance; }
+    const doc = {
       accountId: account.id,
       ref: genRef(),
       date: dayOffset(n),
@@ -117,8 +141,18 @@ function build(account, moves) {
       counterparty,
       amount, // signed cents
       type: amount >= 0 ? 'credit' : 'debit',
-      balanceAfter: balance,
+      balanceAfter,
+      status,
     };
+    if (meta.kind) {
+      doc.kind = meta.kind;
+      doc.transferId = genTransferId();
+      const m = {};
+      if (meta.contact) m.contact = meta.contact;
+      if (meta.mode) m.mode = meta.mode;
+      doc.meta = m;
+    }
+    return doc;
   });
   return { txns, finalBalance: balance };
 }
@@ -153,7 +187,7 @@ async function main() {
       userId = existing._id;
       await users.updateOne(
         { _id: userId },
-        { $set: { email: EMAIL, role: 'user', active: true, profile: PROFILE, accounts, passwordHash, updatedAt: now } }
+        { $set: { email: EMAIL, role: 'user', active: true, profile: PROFILE, accounts, zelle: ZELLE, zelleRecipients: ZELLE_RECIPIENTS, passwordHash, updatedAt: now } }
       );
       console.log(`Updated existing user "${USERNAME}" (id ${userId}).`);
     } else {
@@ -165,6 +199,8 @@ async function main() {
         active: true,
         profile: PROFILE,
         accounts,
+        zelle: ZELLE,
+        zelleRecipients: ZELLE_RECIPIENTS,
         createdAt: now,
         updatedAt: now,
       });

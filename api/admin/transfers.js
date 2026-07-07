@@ -62,7 +62,7 @@ module.exports = async (req, res) => {
         status,
         date: primary.date ? new Date(primary.date).toISOString() : null,
         amount, // magnitude in cents
-        direction: primary.kind === 'deposit' ? 'in' : 'out',
+        direction: primary.amount > 0 ? 'in' : 'out',
         description: primary.description || '',
         user: u ? { id: String(u._id), username: u.username, displayName: (u.profile && (u.profile.displayName || u.profile.firstName)) || u.username } : null,
         fromAccount: from ? { name: from.name, number: from.number } : null,
