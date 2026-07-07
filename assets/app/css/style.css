@@ -5242,3 +5242,62 @@ body.theme-dark .skel { background: #2a2f2c; background-image: linear-gradient(9
 
 body.theme-dark .txn-desc { color: #eef2ef; }
 body.theme-dark .txn-list .txn-row + .txn-row { border-color: rgba(255,255,255,.08); }
+.txn-badge { display: inline-block; margin-top: 6px; font-size: 10px; font-weight: 700; color: #4f9a3f; background: #e4f2df; border-radius: 10px; padding: 2px 10px; letter-spacing: .02em; }
+
+/* ===================== Reference redesign (white account cards etc.) ===================== */
+
+/* Avatar sitting in the greeting row */
+.greet-avatar {
+  width: 54px; height: 54px; border-radius: 50%; flex: 0 0 54px; margin-left: 12px;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+  border: 3px solid rgba(255,255,255,.7); box-shadow: 0 3px 10px rgba(0,0,0,.25);
+}
+
+/* Clean white account card */
+.acct-wcard {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #fff; border-radius: 18px; padding: 20px 22px; text-decoration: none;
+  box-shadow: 0 10px 26px rgba(0,0,0,.16); border: 1px solid rgba(0,0,0,.04);
+}
+.acct-wcard .aw-name { font-size: 18px; font-weight: 700; color: #13120f; }
+.acct-wcard .aw-num { font-size: 13px; color: #8a8f8c; margin-top: 2px; }
+.acct-wcard .aw-bal { font-size: 20px; font-weight: 800; color: #13120f; text-align: right; font-variant-numeric: tabular-nums; }
+.acct-wcard .aw-avail { font-size: 13px; color: #8a8f8c; text-align: right; margin-top: 2px; }
+
+/* Single-card carousel */
+.acct-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.acct-track::-webkit-scrollbar { display: none; }
+.acct-slide { flex: 0 0 100%; scroll-snap-align: center; padding: 2px 1px 2px; }
+.acct-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 12px; }
+.acct-nav button { background: none; border: none; color: rgba(255,255,255,.9); font-size: 22px; line-height: 1; padding: 2px 6px; cursor: pointer; }
+.acct-dots { display: flex; gap: 8px; align-items: center; }
+.acct-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.42); cursor: pointer; transition: background .2s; }
+.acct-dot.active { background: #fff; }
+
+/* Accounts list page — white cards stacked */
+.acct-list-stack { display: flex; flex-direction: column; gap: 12px; padding: 4px 15px 0; position: relative; z-index: 1; }
+
+/* Account detail hero (balance directly on green) */
+.acct-hero-num { font-size: 14px; font-weight: 500; opacity: .82; margin-top: 2px; }
+.acct-hero-bal { font-size: 26px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.acct-hero-avail { font-size: 13px; opacity: .82; margin-top: 2px; }
+
+/* Account & Routing # dropdown */
+.ar-toggle { display: flex; align-items: center; justify-content: space-between; text-decoration: none; }
+.ar-toggle, .ar-toggle .ar-title { color: #6b7280 !important; }
+.ar-title { font-size: 14px; font-weight: 700; letter-spacing: .03em; }
+.ar-chev { color: #9aa2a5; transition: transform .2s ease; }
+.ar-body { margin-top: 12px; }
+.ar-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; }
+.ar-row + .ar-row { border-top: 1px solid rgba(0,0,0,.06); }
+.ar-row .ar-k { font-size: 13px; color: #8a8f8c; }
+.ar-row .ar-v { font-size: 14px; font-weight: 600; color: #13120f; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+
+/* Bottom brand + contact card */
+.foot-actions { display: flex; justify-content: space-around; margin-top: 4px; }
+.foot-act { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #5a6560; text-decoration: none; font-size: 13px; }
+.foot-act i { font-size: 20px; color: #007a3a; }
+
+body.theme-dark .acct-wcard { background: #23282a; border-color: rgba(255,255,255,.06); }
+body.theme-dark .acct-wcard .aw-name, body.theme-dark .acct-wcard .aw-bal { color: #eef2ef; }
+body.theme-dark .ar-row .ar-v { color: #eef2ef; }

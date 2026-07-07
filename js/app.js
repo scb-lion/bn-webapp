@@ -7,6 +7,7 @@
   'use strict';
 
   var DEFAULT_AVATAR = '/assets/img/default-avatar.png';
+  var ROUTING_NUMBER = '053101121'; // demo routing number for the (fictional) credit union
 
   /* ---------- helpers ---------- */
   function esc(s) {
@@ -45,7 +46,6 @@
       '" style="font-size:26px;color:#b9c1bd;"></i>' +
       '<p class="color-theme font-12 mt-2 mb-0">' + esc(msg) + '</p></div>';
   }
-  function acctKind(a) { return /sav/i.test(a.type || '') ? 'save' : 'check'; }
   // Pick a category icon + colour from a transaction's text. Icon names are the
   // classic (fa5) set with the `fas` prefix — the loaded Font Awesome build does
   // not alias the newer `fa-solid` prefix.
@@ -81,13 +81,13 @@
     if (dayKey(d) === dayKey(y)) return 'Yesterday';
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   }
-  function txnHistory(list) {
+  function txnHistory(list, opts) {
     if (!list || !list.length) return emptyState('No transactions yet');
     var out = '<div class="txn-list">', last = null;
     list.forEach(function (t) {
       var lbl = groupLabel(t.date);
       if (lbl !== last) { out += '<div class="txn-group-label">' + esc(lbl) + '</div>'; last = lbl; }
-      out += txnRow(t);
+      out += txnRow(t, opts);
     });
     return out + '</div>';
   }
@@ -117,6 +117,20 @@
     if (e.target.closest('.close-menu') || e.target.classList.contains('menu-hider')) {
       e.preventDefault();
       closeMenus();
+      return;
+    }
+    // Account & Routing # expandable
+    var arToggle = e.target.closest('[data-toggle="acct-routing"]');
+    if (arToggle) {
+      e.preventDefault();
+      var card = arToggle.closest('.acct-routing');
+      var body = card && card.querySelector('.ar-body');
+      var chev = arToggle.querySelector('.ar-chev');
+      if (body) {
+        var willOpen = body.hasAttribute('hidden');
+        if (willOpen) body.removeAttribute('hidden'); else body.setAttribute('hidden', '');
+        if (chev) chev.style.transform = willOpen ? 'rotate(180deg)' : '';
+      }
       return;
     }
     // logout links
@@ -159,35 +173,57 @@
   }
 
   /* ---------- shared shell for regenerated pages ---------- */
-  function shell(title, inner) {
+  function headerBar() {
     return (
       '<div class="header header-logo-app">' +
         '<a href="/user/dashboard" class="header-icon header-icon-1 color-white"><i class="fas fa-arrow-left"></i></a>' +
         '<a href="#" data-menu="menu-main" class="header-icon color-white" style="position:absolute;right:10px;top:0;"><i class="fas fa-bars"></i></a>' +
-      '</div>' +
+      '</div>'
+    );
+  }
+  function heroCard(height) {
+    return '<div class="card header-card" data-card-height="' + height + '" style="height:' + height + 'px;">' +
+      '<div class="card-overlay bg-highlight opacity-95"></div>' +
+      '<div class="card-overlay dark-mode-tint"></div>' +
+    '</div>';
+  }
+  function shell(title, inner) {
+    return (
+      headerBar() +
       '<div class="page-title page-title-large"><h2 class="color-white">' + esc(title) + '</h2></div>' +
-      '<div class="card header-card" data-card-height="180" style="height:180px;">' +
-        '<div class="card-overlay bg-highlight opacity-95"></div>' +
-        '<div class="card-overlay dark-mode-tint"></div>' +
-      '</div>' + inner
+      heroCard(180) + inner
     );
   }
   function setContent(html) {
     var pc = q('.page-content');
     if (pc) pc.innerHTML = html;
   }
+  // Brand + contact card (matches the one on the dashboard).
+  function footerCard() {
+    return (
+      '<div class="card card-style"><div class="content text-center">' +
+        '<img src="/assets/img/logo.png" alt="Alliance Credit Union" style="max-width:230px;width:70%;height:auto;display:block;margin:8px auto 18px;">' +
+        '<div class="foot-actions">' +
+          '<a href="/user/contact-support" class="foot-act"><i class="fas fa-phone-alt"></i><span>Call</span></a>' +
+          '<a href="/user/messages" class="foot-act"><i class="fas fa-comment-dots"></i><span>Message</span></a>' +
+          '<a href="/user/contact-support" class="foot-act"><i class="fas fa-info-circle"></i><span>Info</span></a>' +
+        '</div>' +
+      '</div></div>'
+    );
+  }
 
   /* ---------- row + card builders ---------- */
-  function txnRow(t) {
+  function txnRow(t, opts) {
     var s = signed(t.amount);
     var ic = txnIcon(t);
+    var badge = opts && opts.badge ? '<div class="txn-badge">Completed</div>' : '';
     return (
       '<a href="/user/transaction/detail?id=' + encodeURIComponent(t.id) + '" class="txn-row">' +
         '<div class="d-flex align-items-center">' +
           '<div class="txn-ic" style="background:' + ic.bg + ';color:' + ic.fg + ';"><i class="fas ' + ic.icon + '"></i></div>' +
           '<div class="ps-2" style="min-width:0;flex:1;">' +
             '<h5 class="txn-desc">' + esc(t.description) + '</h5>' +
-            '<span class="txn-date">' + esc(fmtDateShort(t.date)) + '</span>' +
+            '<span class="txn-date">' + esc(fmtDateShort(t.date)) + '</span>' + badge +
           '</div>' +
           '<div class="ms-auto ps-2 text-end">' +
             '<h5 class="txn-amt" style="color:' + s.color + ';">' + s.text + '</h5>' +
@@ -197,16 +233,37 @@
       '</a>'
     );
   }
-  // Full-width account card (accounts list page) — same look as the dashboard carousel.
-  function accountCard(a) {
-    var masked = '•••• ' + String(a.number || '').slice(-4);
+  // Clean white account card (dashboard carousel + accounts list).
+  function accountWCard(a) {
     return (
-      '<a href="/user/account?num=' + encodeURIComponent(a.number) + '" class="acct-card acct-' + acctKind(a) + '">' +
-        '<div class="ac-top"><span>' + esc(a.type) + '</span><i class="fas fa-university"></i></div>' +
-        '<div><div class="ac-bal">$' + money(a.balance) + '</div>' +
-        '<div class="ac-sub"><span>' + esc(a.name || a.type) + '</span><span class="ac-num">' + esc(masked) + '</span></div></div>' +
+      '<a href="/user/account?num=' + encodeURIComponent(a.number) + '" class="acct-wcard">' +
+        '<div><div class="aw-name">' + esc(a.type) + '</div><div class="aw-num">x' + esc(a.number) + '</div></div>' +
+        '<div><div class="aw-bal">$' + money(a.balance) + '</div><div class="aw-avail">Available</div></div>' +
       '</a>'
     );
+  }
+  // Single-card carousel (arrows + dots) for the dashboard accounts.
+  function accountsCarousel(accounts) {
+    var slides = accounts.map(function (a) { return '<div class="acct-slide">' + accountWCard(a) + '</div>'; }).join('');
+    if (accounts.length < 2) return '<div class="acct-track">' + slides + '</div>';
+    var dots = accounts.map(function (_, i) { return '<span class="acct-dot' + (i === 0 ? ' active' : '') + '" data-i="' + i + '"></span>'; }).join('');
+    return '<div class="acct-track">' + slides + '</div>' +
+      '<div class="acct-nav"><button type="button" class="acct-prev" aria-label="Previous">‹</button>' +
+      '<div class="acct-dots">' + dots + '</div>' +
+      '<button type="button" class="acct-next" aria-label="Next">›</button></div>';
+  }
+  function wireCarousel(container) {
+    var track = container.querySelector('.acct-track');
+    if (!track) return;
+    var slides = container.querySelectorAll('.acct-slide');
+    var dots = Array.prototype.slice.call(container.querySelectorAll('.acct-dot'));
+    function current() { return track.clientWidth ? Math.round(track.scrollLeft / track.clientWidth) : 0; }
+    function go(i) { i = Math.max(0, Math.min(slides.length - 1, i)); track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' }); }
+    var prev = container.querySelector('.acct-prev'), next = container.querySelector('.acct-next');
+    if (prev) prev.addEventListener('click', function () { go(current() - 1); });
+    if (next) next.addEventListener('click', function () { go(current() + 1); });
+    track.addEventListener('scroll', function () { var c = current(); dots.forEach(function (d, i) { d.classList.toggle('active', i === c); }); });
+    dots.forEach(function (d, i) { d.addEventListener('click', function () { go(i); }); });
   }
 
   /* ---------- dashboard (fill the skeleton slots in dashboard.html) ---------- */
@@ -227,9 +284,8 @@
 
     var accEl = document.getElementById('dash-accounts');
     if (accEl) {
-      accEl.innerHTML = me.accounts.length
-        ? me.accounts.map(accountCard).join('')
-        : '<div class="acct-card acct-check" style="justify-content:center;align-items:center;font-size:13px;">No accounts yet</div>';
+      if (me.accounts.length) { accEl.innerHTML = accountsCarousel(me.accounts); wireCarousel(accEl); }
+      else accEl.innerHTML = '<div class="acct-wcard"><div class="aw-name" style="font-size:14px;color:#8a8f8c;">No accounts yet</div><div></div></div>';
     }
 
     var txEl = document.getElementById('dash-txns');
@@ -243,9 +299,9 @@
   /* ---------- accounts list page ---------- */
   function renderAccounts(me) {
     var inner = me.accounts.length
-      ? '<div class="acct-stack">' + me.accounts.map(accountCard).join('') + '</div>'
+      ? '<div class="acct-list-stack">' + me.accounts.map(accountWCard).join('') + '</div>'
       : '<div class="card card-style"><div class="content">' + emptyState('No accounts', 'fa-wallet') + '</div></div>';
-    setContent(shell('Accounts', inner));
+    setContent(shell('Accounts', inner + footerCard()));
   }
 
   /* ---------- single account page (?num=) ---------- */
@@ -256,16 +312,27 @@
     if (!acct) { setContent(shell('Account', '<div class="card card-style"><div class="content">Account not found.</div></div>')); return; }
     var res = await api('/api/transactions?accountId=' + encodeURIComponent(acct.id));
     var data = res.ok ? await res.json() : { transactions: [] };
-    var masked = '•••• ' + String(acct.number || '').slice(-4);
-    setContent(shell(acct.name || 'Account',
-      '<div class="acct-stack"><div class="acct-card acct-' + acctKind(acct) + '" style="min-height:132px;">' +
-        '<div class="ac-top"><span>' + esc(acct.type) + '</span><i class="fas fa-university"></i></div>' +
-        '<div><div class="ac-bal" style="font-size:30px;">$' + money(acct.balance) + '</div>' +
-        '<div class="ac-sub"><span>Available balance</span><span class="ac-num">' + esc(masked) + '</span></div></div>' +
+    setContent(
+      headerBar() +
+      '<div class="page-title page-title-large">' +
+        '<div class="d-flex align-items-start">' +
+          '<div style="flex:1;min-width:0;"><h2 class="color-white mb-0">' + esc(acct.type) + '</h2>' +
+            '<div class="color-white acct-hero-num">x' + esc(acct.number) + '</div></div>' +
+          '<div class="text-end color-white ps-2"><div class="acct-hero-bal">$' + money(acct.balance) + '</div>' +
+            '<div class="acct-hero-avail">Available</div></div>' +
+        '</div>' +
+      '</div>' +
+      heroCard(220) +
+      '<div class="card card-style acct-routing"><div class="content">' +
+        '<a href="#" class="ar-toggle" data-toggle="acct-routing"><span class="ar-title">ACCOUNT &amp; ROUTING #</span><i class="fas fa-chevron-down ar-chev"></i></a>' +
+        '<div class="ar-body" hidden>' +
+          '<div class="ar-row"><span class="ar-k">Account Number</span><span class="ar-v">' + esc(acct.number) + '</span></div>' +
+          '<div class="ar-row"><span class="ar-k">Routing Number</span><span class="ar-v">' + esc(ROUTING_NUMBER) + '</span></div>' +
+        '</div>' +
       '</div></div>' +
       '<div class="card card-style"><div class="content">' +
         '<h6 class="font-14 mb-3" style="font-weight:600!important;">Transactions</h6>' + txnHistory(data.transactions) +
-      '</div></div>'));
+      '</div></div>');
   }
 
   /* ---------- transactions list page ---------- */
