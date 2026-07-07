@@ -155,10 +155,10 @@
         clearMsgs();
         reqBtn.disabled = true; reqBtn.textContent = 'Sending…';
         try {
-          var res = await fetch('/api/auth/forgot', {
+          var res = await fetch('/api/auth/otp', {
             method: 'POST', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: document.getElementById('username').value }),
+            body: JSON.stringify({ action: 'forgot', username: document.getElementById('username').value }),
           });
           var data = await res.json().catch(function () { return {}; });
           if (!res.ok) throw new Error(data.error || 'Something went wrong');
@@ -183,10 +183,11 @@
         clearMsgs();
         resetBtn.disabled = true; resetBtn.textContent = 'Resetting…';
         try {
-          var res = await fetch('/api/auth/reset', {
+          var res = await fetch('/api/auth/otp', {
             method: 'POST', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              action: 'reset',
               challengeId: challengeId,
               code: document.getElementById('code').value.trim(),
               newPassword: document.getElementById('newPassword').value,

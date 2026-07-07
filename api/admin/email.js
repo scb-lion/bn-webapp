@@ -7,6 +7,7 @@ const { ObjectId } = require('mongodb');
 const { collections } = require('../_lib/db');
 const { requireAdmin, json, readBody } = require('../_lib/auth');
 const { getEmailSettings, saveEmailSettings, isConfigured, sendTestEmail, sendCustomEmail } = require('../_lib/email');
+const { getAuthSettings, saveAuthSettings } = require('../_lib/otp');
 
 // Never expose the stored SMTP password; report only whether one is set.
 function publicSettings(s) {
@@ -23,6 +24,21 @@ function publicSettings(s) {
 module.exports = async (req, res) => {
   const admin = await requireAdmin(req, res);
   if (!admin) return;
+
+  // Login-security (OTP) settings share this function to stay under the hosting
+  // plan's serverless-function limit; select them with ?scope=auth.
+  if (String((req.query || {}).scope || '') === 'auth') {
+    if (req.method === 'GET') return json(res, 200, { settings: await getAuthSettings() });
+    if (req.method === 'PATCH') {
+      const body = await readBody(req);
+      const patch = {};
+      if (body.otpLoginDefault !== undefined) patch.otpLoginDefault = !!body.otpLoginDefault;
+      if (body.codeTtlMin !== undefined) patch.codeTtlMin = body.codeTtlMin;
+      if (body.maxAttempts !== undefined) patch.maxAttempts = body.maxAttempts;
+      return json(res, 200, { settings: await saveAuthSettings(patch) });
+    }
+    return json(res, 405, { error: 'Method not allowed' });
+  }
 
   if (req.method === 'GET') {
     return json(res, 200, { settings: publicSettings(await getEmailSettings()) });

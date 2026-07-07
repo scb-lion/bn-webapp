@@ -20,9 +20,7 @@ const MIME = {
 // ---- API route table: url path -> handler module (required lazily, after env is set)
 const API_ROUTES = {
   '/api/auth/login': 'api/auth/login.js',
-  '/api/auth/verify-otp': 'api/auth/verify-otp.js',
-  '/api/auth/forgot': 'api/auth/forgot.js',
-  '/api/auth/reset': 'api/auth/reset.js',
+  '/api/auth/otp': 'api/auth/otp.js',
   '/api/auth/logout': 'api/auth/logout.js',
   '/api/me': 'api/me.js',
   '/api/transactions': 'api/transactions.js',
@@ -33,7 +31,6 @@ const API_ROUTES = {
   '/api/admin/transactions': 'api/admin/transactions.js',
   '/api/admin/transfers': 'api/admin/transfers.js',
   '/api/admin/email': 'api/admin/email.js',
-  '/api/admin/security': 'api/admin/security.js',
 };
 
 // ---- static path resolution (mimics vercel cleanUrls + our two rewrites)

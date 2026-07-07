@@ -258,11 +258,11 @@
         clearErr();
         otpBtn.disabled = true; otpBtn.textContent = 'Verifying…';
         try {
-          var res = await fetch('/api/auth/verify-otp', {
+          var res = await fetch('/api/auth/otp', {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ challengeId: challengeId, code: otpInput.value.trim() }),
+            body: JSON.stringify({ action: 'verify', challengeId: challengeId, code: otpInput.value.trim() }),
           });
           var data = await res.json().catch(function () { return {}; });
           if (!res.ok) throw new Error(data.error || 'Verification failed');

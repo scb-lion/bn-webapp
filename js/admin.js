@@ -438,7 +438,7 @@
   }
   async function loadSecurity() {
     try {
-      var data = await api('/api/admin/security');
+      var data = await api('/api/admin/email?scope=auth');
       renderSecurityCard(data.settings);
     } catch (e) {
       el('security-card').innerHTML = '<div class="approvals-empty">Could not load login security settings.</div>';
@@ -452,7 +452,7 @@
         codeTtlMin: Number(el('sec-ttl').value) || 10,
         maxAttempts: Number(el('sec-attempts').value) || 5,
       };
-      var data = await api('/api/admin/security', 'PATCH', body);
+      var data = await api('/api/admin/email?scope=auth', 'PATCH', body);
       toast('Login security saved');
       renderSecurityCard(data.settings);
     } catch (e) { toast(e.message, true); btn.disabled = false; }
