@@ -5246,6 +5246,16 @@ body.theme-dark .txn-list .txn-row + .txn-row { border-color: rgba(255,255,255,.
 .txn-badge-pending { color: #a06b00; background: #fff2d6; }
 .txn-badge-rejected { color: #7a857f; background: #eef1f0; }
 
+/* Transaction detail: status pill + explanatory note */
+.txn-detail-badge { display: inline-block; margin-top: 10px; font-size: 12px; font-weight: 700; border-radius: 12px; padding: 4px 14px; letter-spacing: .02em; }
+.txn-detail-badge.is-completed { color: #1a7f37; background: #e6f4ea; }
+.txn-detail-badge.is-pending { color: #a06b00; background: #fff2d6; }
+.txn-detail-badge.is-rejected { color: #7a857f; background: #eef1f0; }
+.txn-note { font-size: 12.5px; line-height: 18px; color: #5a6560; display: flex; gap: 8px; align-items: flex-start; }
+.txn-note i { margin-top: 2px; }
+.txn-note.is-pending i { color: #a06b00; }
+.txn-note.is-rejected i { color: #b0392b; }
+
 /* ===================== Reference redesign (white account cards etc.) ===================== */
 
 /* Avatar sitting in the greeting row */

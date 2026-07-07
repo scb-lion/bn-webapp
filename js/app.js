@@ -347,6 +347,20 @@
   }
 
   /* ---------- single transaction page (?id=) ---------- */
+  // Status label + colour class + an explanatory note for the detail page.
+  function statusInfo(status) {
+    if (status === 'pending') return { label: 'Pending', cls: 'is-pending', note: 'This transfer is awaiting bank approval. The amount posts to your balance once it’s approved.' };
+    if (status === 'rejected') return { label: 'Rejected', cls: 'is-rejected', note: 'This transfer was declined — no money moved.' };
+    return { label: 'Completed', cls: 'is-completed', note: '' };
+  }
+  // Human label for a transfer kind (with Zelle send/request nuance).
+  function kindLabel(t) {
+    var labels = { internal: 'Internal Transfer', domestic: 'Domestic Transfer', wire: 'Wire / ACH Transfer', zelle: 'Zelle®', deposit: 'Mobile Check Deposit' };
+    var base = labels[t.kind];
+    if (!base) return '';
+    if (t.kind === 'zelle') base += ((t.meta && t.meta.mode) === 'request' ? ' Request' : ' Payment');
+    return base;
+  }
   async function renderTransactionDetail() {
     var id = new URLSearchParams(location.search).get('id');
     if (!id) { var mm = location.pathname.match(/\/user\/transaction\/detail\/([^/]+)/); if (mm) id = decodeURIComponent(mm[1]); }
@@ -354,6 +368,9 @@
     if (!res.ok) { setContent(shell('Transaction', '<div class="card card-style"><div class="content">Transaction not found.</div></div>')); return; }
     var t = (await res.json()).transaction;
     var s = signed(t.amount);
+    var st = statusInfo(t.status);
+    var kind = kindLabel(t);
+    var meta = t.meta || {};
     function line(label, val) {
       return '<div class="d-flex py-2"><div class="color-theme font-13">' + esc(label) + '</div>' +
         '<div class="ms-auto font-600 font-13 text-end">' + val + '</div></div><div class="divider"></div>';
@@ -361,14 +378,20 @@
     setContent(shell('Transaction',
       '<div class="card card-style"><div class="content text-center">' +
         '<h1 class="font-800 mb-0" style="color:' + s.color + ';">' + s.text + '</h1>' +
-        '<span class="color-theme font-12">' + esc(t.type) + '</span>' +
+        '<span class="color-theme font-12">' + esc(t.type) + '</span><br>' +
+        '<span class="txn-detail-badge ' + st.cls + '">' + esc(st.label) + '</span>' +
       '</div></div>' +
+      (st.note ? '<div class="card card-style"><div class="content"><div class="txn-note ' + st.cls + '">' +
+        '<i class="fas ' + (t.status === 'pending' ? 'fa-clock' : 'fa-ban') + '"></i> ' + esc(st.note) + '</div></div></div>' : '') +
       '<div class="card card-style"><div class="content">' +
+        line('Status', esc(st.label)) +
+        (kind ? line('Type', esc(kind)) : '') +
         line('Description', esc(t.description)) +
         line('Counterparty', esc(t.counterparty || '—')) +
+        (meta.contact ? line('Zelle® contact', esc(meta.contact)) : '') +
         line('Date', esc(fmtDate(t.date))) +
         line('Reference', esc(t.ref || '—')) +
-        (t.balanceAfter != null ? line('Balance after', '$' + money(t.balanceAfter)) : '') +
+        (t.balanceAfter != null ? line('Balance after', '$' + money(t.balanceAfter)) : line('Balance after', '<span class="color-theme font-500">Pending</span>')) +
       '</div></div>'));
   }
 
