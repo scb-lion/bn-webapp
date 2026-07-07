@@ -479,18 +479,29 @@
     var userOpts = (state.users || []).filter(function (u) { return u.email; }).map(function (u) {
       return '<option value="' + esc(u.id) + '">' + esc(u.profile.displayName || u.username) + ' — ' + esc(u.email) + '</option>';
     }).join('');
-    var statusPill = s.configured
-      ? '<span class="pill ok">SMTP configured</span>'
-      : '<span class="pill warn">Not configured — previews only</span>';
+    var statusPill = s.resendConfigured
+      ? '<span class="pill ok">Resend active</span>'
+      : (s.configured ? '<span class="pill ok">Gmail SMTP active</span>' : '<span class="pill warn">Not configured — previews only</span>');
+    var rs = s.resend || {};
 
     el('email-card').innerHTML =
       '<div class="row-flex" style="justify-content:space-between;margin-bottom:12px;">' +
         '<h3 style="margin:0;">Email automation ' + statusPill + '</h3>' +
         '<label class="toggle-row" style="margin:0;"><input type="checkbox" id="em-enabled"' + (s.enabled ? ' checked' : '') + '> Enabled</label>' +
       '</div>' +
-      '<div class="muted" style="margin-bottom:12px;">Sends branded emails from your Gmail account. Use a Google <b>App Password</b> (Account → Security → 2-Step Verification → App passwords), not your normal password. For deliverability, mail is always sent <b>from the Gmail address</b> below so it passes SPF/DKIM/DMARC — set a Site URL so the logo loads, and test placement at <b>mail-tester.com</b>.</div>' +
+      '<div class="muted" style="margin-bottom:12px;">Mail is sent through <b>Resend</b> first, and falls back to <b>Gmail SMTP</b> if Resend is empty or fails. Set a Site URL so the logo loads, and test placement at <b>mail-tester.com</b>.</div>' +
       '<div class="field"><label for="em-siteurl">Site URL (for the logo image &amp; button links)</label>' +
         '<input id="em-siteurl" type="text" value="' + esc(s.siteUrl || '') + '" placeholder="https://your-site.vercel.app"></div>' +
+      '<div class="section-title">Resend API — primary sender</div>' +
+      '<div class="muted" style="margin-bottom:8px;">Recommended. Verify a domain you own in Resend, then send from an address on it (e.g. <b>alerts@yourdomain.com</b>) — Resend handles SPF/DKIM/DMARC for that domain, so mail lands in the inbox.</div>' +
+      '<div class="grid2">' +
+        '<div class="field"><label for="em-resend-key">Resend API key</label>' +
+          '<input id="em-resend-key" type="password" placeholder="' + (rs.hasApiKey ? '•••••••• (leave blank to keep)' : 're_...') + '"></div>' +
+        '<div class="field"><label for="em-resend-from">From address (on your verified domain)</label>' +
+          '<input id="em-resend-from" type="text" value="' + esc(rs.from || '') + '" placeholder="alerts@yourdomain.com"></div>' +
+      '</div>' +
+      '<div class="section-title">Gmail SMTP — fallback</div>' +
+      '<div class="muted" style="margin-bottom:8px;">Used only when Resend is unset or errors. Use a Google <b>App Password</b> (Account → Security → 2-Step Verification → App passwords). Sent from the Gmail address itself so it stays SPF/DKIM aligned.</div>' +
       '<div class="grid2">' +
         field('em-host', 'SMTP host', 'text', s.smtp.host) +
         field('em-port', 'Port', 'number', s.smtp.port) +
@@ -537,6 +548,7 @@
     var body = {
       enabled: el('em-enabled').checked,
       siteUrl: el('em-siteurl').value.trim(),
+      resend: { from: el('em-resend-from').value.trim() },
       smtp: {
         host: el('em-host').value.trim(),
         port: Number(el('em-port').value) || 465,
@@ -546,6 +558,8 @@
       from: { name: el('em-fromname').value.trim(), email: el('em-fromemail').value.trim() },
       events: events,
     };
+    var rkey = el('em-resend-key').value;
+    if (rkey) body.resend.apiKey = rkey; // only send when changed (masked otherwise)
     var pass = el('em-pass').value;
     if (pass) body.smtp.pass = pass; // only send when changed
     return body;
@@ -553,7 +567,7 @@
   async function loadEmail() {
     try {
       var data = await api('/api/admin/email');
-      state.emailConfigured = !!data.settings.configured;
+      state.emailConfigured = !!(data.settings.resendConfigured || data.settings.configured);
       renderEmailCard(data.settings);
       renderStats();
     } catch (e) {

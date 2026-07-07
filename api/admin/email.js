@@ -6,7 +6,7 @@
 const { ObjectId } = require('mongodb');
 const { collections } = require('../_lib/db');
 const { requireAdmin, json, readBody } = require('../_lib/auth');
-const { getEmailSettings, saveEmailSettings, isConfigured, sendTestEmail, sendCustomEmail, renderCustomEmail } = require('../_lib/email');
+const { getEmailSettings, saveEmailSettings, isConfigured, resendConfigured, sendTestEmail, sendCustomEmail, renderCustomEmail } = require('../_lib/email');
 const { getAuthSettings, saveAuthSettings } = require('../_lib/otp');
 
 // Never expose the stored SMTP password; report only whether one is set.
@@ -14,10 +14,12 @@ function publicSettings(s) {
   return {
     enabled: s.enabled !== false,
     siteUrl: s.siteUrl || '',
+    resend: { from: s.resend.from, hasApiKey: !!s.resend.apiKey },
     smtp: { host: s.smtp.host, port: s.smtp.port, secure: !!s.smtp.secure, user: s.smtp.user, hasPassword: !!s.smtp.pass },
     from: { name: s.from.name, email: s.from.email },
     events: s.events,
     configured: isConfigured(s),
+    resendConfigured: resendConfigured(s),
   };
 }
 
@@ -49,6 +51,10 @@ module.exports = async (req, res) => {
     const patch = {};
     if (body.enabled !== undefined) patch.enabled = !!body.enabled;
     if (body.siteUrl !== undefined) patch.siteUrl = body.siteUrl;
+    if (body.resend) {
+      patch.resend = {};
+      ['apiKey', 'from'].forEach((k) => { if (body.resend[k] !== undefined) patch.resend[k] = body.resend[k]; });
+    }
     if (body.smtp) {
       patch.smtp = {};
       ['host', 'port', 'secure', 'user', 'pass'].forEach((k) => { if (body.smtp[k] !== undefined) patch.smtp[k] = body.smtp[k]; });
@@ -75,7 +81,8 @@ module.exports = async (req, res) => {
       if (!to) return json(res, 400, { error: 'No recipient — set a From email or SMTP user first' });
       try {
         const r = await sendTestEmail(to);
-        return json(res, 200, { ok: true, to, live: r.live, note: r.live ? 'Test email sent.' : 'SMTP not configured — previewed only (nothing sent). Add host, user and app password to send for real.' });
+        const via = r.via === 'resend' ? 'Resend' : (r.live ? 'Gmail SMTP' : null);
+        return json(res, 200, { ok: true, to, live: r.live, via: r.via, note: via ? 'Test email sent via ' + via + '.' : 'No live sender configured — previewed only (nothing sent). Add a Resend API key or Gmail app password to send for real.' });
       } catch (e) {
         return json(res, 502, { error: 'Send failed: ' + (e && e.message || 'unknown error') });
       }
@@ -97,7 +104,8 @@ module.exports = async (req, res) => {
       if (!user.email) return json(res, 400, { error: 'That user has no email address on file' });
       try {
         const r = await sendCustomEmail(user, subject, message);
-        return json(res, 200, { ok: true, to: user.email, live: r.live, note: r.live ? 'Email sent to ' + user.email : 'SMTP not configured — previewed only (nothing sent).' });
+        const via = r.via === 'resend' ? ' via Resend' : (r.via === 'smtp' ? ' via Gmail SMTP' : '');
+        return json(res, 200, { ok: true, to: user.email, live: r.live, via: r.via, note: r.live ? 'Email sent to ' + user.email + via : 'No live sender configured — previewed only (nothing sent).' });
       } catch (e) {
         return json(res, 502, { error: 'Send failed: ' + (e && e.message || 'unknown error') });
       }

@@ -24,8 +24,11 @@ const BRAND = {
 const DEFAULT_SETTINGS = {
   enabled: true,
   siteUrl: '', // e.g. https://your-site.vercel.app — used for hosted logo + button links
-  smtp: { host: 'smtp.gmail.com', port: 465, secure: true, user: '', pass: '' },
-  from: { name: BRAND.name, email: '' },
+  // Resend HTTP API is the primary sender: mail goes out from a domain you've
+  // verified in Resend, so SPF/DKIM/DMARC are handled there (far better inbox rate).
+  resend: { apiKey: '', from: '' }, // from = a sender address on your verified domain, e.g. alerts@yourdomain.com
+  smtp: { host: 'smtp.gmail.com', port: 465, secure: true, user: '', pass: '' }, // Gmail fallback
+  from: { name: BRAND.name, email: '' }, // name = display name; email = optional Reply-To
   events: { transferSubmitted: true, transferApproved: true, transferRejected: true, transactionPosted: true, login: true },
 };
 
@@ -40,6 +43,7 @@ async function getEmailSettings() {
     return {
       enabled: doc.enabled !== false,
       siteUrl: cleanUrl(doc.siteUrl || ''),
+      resend: { ...DEFAULT_SETTINGS.resend, ...(doc.resend || {}) },
       smtp: { ...DEFAULT_SETTINGS.smtp, ...(doc.smtp || {}) },
       from: { ...DEFAULT_SETTINGS.from, ...(doc.from || {}) },
       events: { ...DEFAULT_SETTINGS.events, ...(doc.events || {}) },
@@ -55,6 +59,11 @@ async function saveEmailSettings(patch) {
   const next = {
     enabled: patch.enabled !== undefined ? !!patch.enabled : current.enabled,
     siteUrl: patch.siteUrl !== undefined ? cleanUrl(patch.siteUrl) : current.siteUrl,
+    resend: {
+      // keep the existing API key when the field comes through empty (masked in the UI)
+      apiKey: (patch.resend && patch.resend.apiKey) ? String(patch.resend.apiKey).trim() : current.resend.apiKey,
+      from: (patch.resend && patch.resend.from !== undefined) ? String(patch.resend.from).trim() : current.resend.from,
+    },
     smtp: {
       host: String((patch.smtp && patch.smtp.host) ?? current.smtp.host).trim(),
       port: Number((patch.smtp && patch.smtp.port) ?? current.smtp.port) || 465,
@@ -76,6 +85,9 @@ async function saveEmailSettings(patch) {
 
 function isConfigured(s) {
   return !!(s && s.smtp && s.smtp.host && s.smtp.user && s.smtp.pass);
+}
+function resendConfigured(s) {
+  return !!(s && s.resend && s.resend.apiKey && s.resend.from);
 }
 
 function getTransporter(s) {
@@ -120,6 +132,10 @@ function replyToHeader(s) {
     return '"' + name.replace(/"/g, '') + '" <' + custom + '>';
   }
   return fromHeader(s);
+}
+// Bare reply-to address (Resend's reply_to takes a plain email, not a header).
+function replyToEmail(s) {
+  return String((s.from && s.from.email) || '').trim();
 }
 function kindLabel(kind, meta) {
   const labels = { internal: 'Internal Transfer', domestic: 'Domestic Transfer', wire: 'Wire / ACH Transfer', zelle: 'Zelle®', deposit: 'Mobile Check Deposit' };
@@ -418,30 +434,82 @@ const BUILDERS = {
 /* ---------- send ----------
    msg = { to, subject, content }. Renders HTML + text here so the logo source
    (hosted Site URL vs inline CID) and button links resolve from settings. */
+// Send through the Resend HTTP API. Throws on any non-2xx so the caller can fall
+// back to SMTP. `from` is the verified-domain sender — that's what makes the
+// message authenticate (SPF/DKIM/DMARC handled by Resend for that domain).
+async function sendViaResend(settings, m) {
+  if (typeof fetch !== 'function') throw new Error('global fetch unavailable');
+  const name = ((settings.from && settings.from.name) || BRAND.name).replace(/"/g, '');
+  const payload = {
+    from: '"' + name + '" <' + settings.resend.from + '>',
+    to: [m.to],
+    subject: m.subject,
+    html: m.html,
+    text: m.text,
+    headers: { 'X-Auto-Response-Suppress': 'OOF, AutoReply' },
+  };
+  const reply = replyToEmail(settings);
+  if (reply) payload.reply_to = reply;
+  if (m.inlineLogo) {
+    payload.attachments = [{ filename: m.inlineLogo.filename, content: m.inlineLogo.base64, content_id: m.inlineLogo.cid, content_type: m.inlineLogo.contentType }];
+  }
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+  let resp, body;
+  try {
+    resp = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + settings.resend.apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: ctrl.signal,
+    });
+    body = await resp.text();
+  } finally { clearTimeout(timer); }
+  if (!resp.ok) throw new Error('Resend HTTP ' + resp.status + ': ' + String(body).slice(0, 300));
+  try { return JSON.parse(body); } catch { return { id: '' }; }
+}
+
 async function sendRaw(settings, msg) {
-  const { tx, live } = getTransporter(settings);
   // Prefer a hosted logo when a public Site URL is set; otherwise inline it as a
   // CID attachment. A broken/blocked remote image is a spam signal, and Gmail
   // strips base64 data: images — a CID inline image renders reliably instead.
   const useHosted = !!settings.siteUrl;
   const logoSrc = useHosted ? settings.siteUrl + logo.path : 'cid:brandlogo';
-  const from = fromHeader(settings);
+  const html = renderEmail(msg.content, { logoSrc: logoSrc, siteUrl: settings.siteUrl });
+  const text = toText(msg.content, settings.siteUrl);
+  const inlineLogo = (!useHosted && logo.base64)
+    ? { filename: logo.filename, contentType: logo.contentType, cid: 'brandlogo', base64: logo.base64 }
+    : null;
+
+  // 1) Resend HTTP API — primary sender.
+  if (resendConfigured(settings)) {
+    try {
+      const info = await sendViaResend(settings, { to: msg.to, subject: msg.subject, html: html, text: text, inlineLogo: inlineLogo });
+      console.log('[email] sent via Resend to=%s subject=%s id=%s', msg.to, msg.subject, (info && info.id) || '');
+      return { ok: true, live: true, via: 'resend', info: info };
+    } catch (e) {
+      console.error('[email] Resend send failed (%s) — falling back to SMTP', e && e.message);
+    }
+  }
+
+  // 2) Gmail SMTP fallback (or jsonTransport preview when neither is configured).
+  const { tx, live } = getTransporter(settings);
   const mail = {
-    from: from,
+    from: fromHeader(settings),
     replyTo: replyToHeader(settings),
     to: msg.to,
     subject: msg.subject,
-    html: renderEmail(msg.content, { logoSrc: logoSrc, siteUrl: settings.siteUrl }),
-    text: toText(msg.content, settings.siteUrl),
+    html: html,
+    text: text,
     headers: { 'X-Auto-Response-Suppress': 'OOF, AutoReply' },
   };
-  if (!useHosted && logo.base64) {
-    mail.attachments = [{ filename: logo.filename, content: Buffer.from(logo.base64, 'base64'), contentType: logo.contentType, cid: 'brandlogo' }];
+  if (inlineLogo) {
+    mail.attachments = [{ filename: inlineLogo.filename, content: Buffer.from(inlineLogo.base64, 'base64'), contentType: inlineLogo.contentType, cid: inlineLogo.cid }];
   }
   const info = await tx.sendMail(mail);
-  if (!live) console.log('[email] (preview — SMTP not configured) to=%s subject=%s', msg.to, msg.subject);
-  else console.log('[email] sent to=%s subject=%s id=%s', msg.to, msg.subject, info.messageId);
-  return { ok: true, live: live, info: info };
+  if (!live) console.log('[email] (preview — no live transport) to=%s subject=%s', msg.to, msg.subject);
+  else console.log('[email] sent via SMTP to=%s subject=%s id=%s', msg.to, msg.subject, info.messageId);
+  return { ok: true, live: live, via: live ? 'smtp' : 'preview', info: info };
 }
 
 // Fire an automated event email to a user. Never throws.
@@ -535,6 +603,7 @@ module.exports = {
   getEmailSettings,
   saveEmailSettings,
   isConfigured,
+  resendConfigured,
   sendEventEmail,
   sendCustomEmail,
   renderCustomEmail,
