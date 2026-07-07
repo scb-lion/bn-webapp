@@ -675,7 +675,7 @@
 
       var btn = form.querySelector('button[type="submit"]');
       if (btn) btn.disabled = true;
-      api('/api/transfers', {
+      api('/api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(payload),

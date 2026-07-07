@@ -24,12 +24,9 @@ const API_ROUTES = {
   '/api/auth/logout': 'api/auth/logout.js',
   '/api/me': 'api/me.js',
   '/api/transactions': 'api/transactions.js',
-  '/api/transfers': 'api/transfers.js',
   '/api/zelle': 'api/zelle.js',
   '/api/admin/users': 'api/admin/users.js',
-  '/api/admin/user': 'api/admin/user.js',
   '/api/admin/transactions': 'api/admin/transactions.js',
-  '/api/admin/transfers': 'api/admin/transfers.js',
   '/api/admin/email': 'api/admin/email.js',
 };
 

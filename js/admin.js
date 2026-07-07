@@ -203,7 +203,7 @@
     state.selectedId = id;
     renderList();
     try {
-      var data = await api('/api/admin/user?id=' + encodeURIComponent(id));
+      var data = await api('/api/admin/users?id=' + encodeURIComponent(id));
       renderEditor(data.user, data.transactions || []);
     } catch (e) { toast(e.message, true); }
   }
@@ -311,7 +311,7 @@
       };
       var pw = el('e-password').value;
       if (pw) body.password = pw;
-      await api('/api/admin/user?id=' + encodeURIComponent(id), 'PATCH', body);
+      await api('/api/admin/users?id=' + encodeURIComponent(id), 'PATCH', body);
       toast('Saved');
       await loadUsers();
       await selectUser(id);
@@ -321,7 +321,7 @@
   async function deleteUser(id, username) {
     if (!confirm('Delete user @' + username + ' and all their transactions? This cannot be undone.')) return;
     try {
-      await api('/api/admin/user?id=' + encodeURIComponent(id), 'DELETE');
+      await api('/api/admin/users?id=' + encodeURIComponent(id), 'DELETE');
       toast('User deleted');
       clearEditor();
       await loadUsers();
@@ -405,14 +405,14 @@
   }
   async function loadApprovals() {
     try {
-      var data = await api('/api/admin/transfers?status=pending');
+      var data = await api('/api/admin/transactions?resource=transfer&status=pending');
       renderApprovals(data.transfers || []);
     } catch (e) { el('approvals-list').innerHTML = '<div class="approvals-empty">Could not load approvals.</div>'; }
   }
   async function actOnTransfer(transferId, action, btn) {
     if (btn) btn.disabled = true;
     try {
-      await api('/api/admin/transfers', 'POST', { transferId: transferId, action: action });
+      await api('/api/admin/transactions?resource=transfer', 'POST', { transferId: transferId, action: action });
       toast(action === 'approve' ? 'Transfer approved' : 'Transfer rejected');
       await loadApprovals();
       await loadUsers();
