@@ -23,10 +23,13 @@ const BRAND = {
 
 const DEFAULT_SETTINGS = {
   enabled: true,
+  siteUrl: '', // e.g. https://your-site.vercel.app — used for hosted logo + button links
   smtp: { host: 'smtp.gmail.com', port: 465, secure: true, user: '', pass: '' },
   from: { name: BRAND.name, email: '' },
   events: { transferSubmitted: true, transferApproved: true, transferRejected: true, login: true },
 };
+
+function cleanUrl(u) { return String(u || '').trim().replace(/\/+$/, ''); }
 
 /* ---------- settings ---------- */
 async function getEmailSettings() {
@@ -36,6 +39,7 @@ async function getEmailSettings() {
     if (!doc) return { ...DEFAULT_SETTINGS };
     return {
       enabled: doc.enabled !== false,
+      siteUrl: cleanUrl(doc.siteUrl || ''),
       smtp: { ...DEFAULT_SETTINGS.smtp, ...(doc.smtp || {}) },
       from: { ...DEFAULT_SETTINGS.from, ...(doc.from || {}) },
       events: { ...DEFAULT_SETTINGS.events, ...(doc.events || {}) },
@@ -50,6 +54,7 @@ async function saveEmailSettings(patch) {
   const current = await getEmailSettings();
   const next = {
     enabled: patch.enabled !== undefined ? !!patch.enabled : current.enabled,
+    siteUrl: patch.siteUrl !== undefined ? cleanUrl(patch.siteUrl) : current.siteUrl,
     smtp: {
       host: String((patch.smtp && patch.smtp.host) ?? current.smtp.host).trim(),
       port: Number((patch.smtp && patch.smtp.port) ?? current.smtp.port) || 465,
@@ -110,65 +115,98 @@ function kindLabel(kind, meta) {
 
 /* ---------- branded base template ----------
    content = { preheader, heading, intro, rows:[{label,value}], highlight:{amount,label,color},
-               statusBadge:{label,bg,fg}, cta:{label,url}, footerNote } */
-function renderEmail(content) {
+               statusBadge:{label,bg,fg}, cta:{label,path}, footerNote }
+   opts    = { logoSrc, siteUrl } */
+const FONT = 'font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;';
+function resolveUrl(pathOrUrl, siteUrl) {
+  if (!pathOrUrl) return '';
+  if (/^https?:/i.test(pathOrUrl)) return pathOrUrl;
+  return siteUrl ? siteUrl + pathOrUrl : '';
+}
+function renderEmail(content, opts) {
   const c = content || {};
-  const rowsHtml = (c.rows || []).map(function (r) {
+  const o = opts || {};
+  const logoSrc = o.logoSrc || 'cid:brandlogo';
+  const ctaUrl = c.cta ? resolveUrl(c.cta.path || c.cta.url, o.siteUrl) : '';
+
+  const rowsHtml = (c.rows || []).map(function (r, i) {
+    var last = i === c.rows.length - 1;
     return '<tr>' +
-      '<td style="padding:9px 0;border-bottom:1px solid ' + BRAND.line + ';color:' + BRAND.muted + ';font-size:13px;">' + esc(r.label) + '</td>' +
-      '<td style="padding:9px 0;border-bottom:1px solid ' + BRAND.line + ';color:' + BRAND.ink + ';font-size:13px;font-weight:600;text-align:right;">' + esc(r.value) + '</td>' +
+      '<td style="padding:11px 0;' + (last ? '' : 'border-bottom:1px solid ' + BRAND.line + ';') + 'color:' + BRAND.muted + ';font-size:13px;">' + esc(r.label) + '</td>' +
+      '<td style="padding:11px 0;' + (last ? '' : 'border-bottom:1px solid ' + BRAND.line + ';') + 'color:' + BRAND.ink + ';font-size:13px;font-weight:700;text-align:right;">' + esc(r.value) + '</td>' +
     '</tr>';
   }).join('');
 
   const badge = c.statusBadge
-    ? '<span style="display:inline-block;margin-top:10px;padding:4px 14px;border-radius:12px;font-size:12px;font-weight:700;background:' + c.statusBadge.bg + ';color:' + c.statusBadge.fg + ';">' + esc(c.statusBadge.label) + '</span>'
+    ? '<div style="margin-top:12px;"><span style="display:inline-block;padding:5px 16px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.02em;background:' + c.statusBadge.bg + ';color:' + c.statusBadge.fg + ';">' + esc(c.statusBadge.label) + '</span></div>'
     : '';
 
+  // Amount highlight sits inside a soft rounded panel so it stands out.
   const highlight = c.highlight
-    ? '<div style="text-align:center;padding:6px 0 2px;">' +
-        '<div style="font-size:34px;font-weight:800;color:' + (c.highlight.color || BRAND.ink) + ';letter-spacing:-.5px;">' + esc(c.highlight.amount) + '</div>' +
-        (c.highlight.label ? '<div style="font-size:12px;color:' + BRAND.muted + ';margin-top:2px;">' + esc(c.highlight.label) + '</div>' : '') +
+    ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 4px;"><tr><td style="background:#f2f8f4;border:1px solid #e2efe8;border-radius:14px;padding:22px 16px;text-align:center;">' +
+        '<div style="font-size:36px;font-weight:800;color:' + (c.highlight.color || BRAND.ink) + ';letter-spacing:-.6px;line-height:1.05;">' + esc(c.highlight.amount) + '</div>' +
+        (c.highlight.label ? '<div style="font-size:12px;color:' + BRAND.muted + ';margin-top:5px;letter-spacing:.02em;">' + esc(c.highlight.label) + '</div>' : '') +
         badge +
-      '</div>'
+      '</td></tr></table>'
     : '';
 
-  const cta = c.cta
-    ? '<div style="text-align:center;margin:22px 0 6px;"><a href="' + esc(c.cta.url) + '" style="background:' + BRAND.accent + ';color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 26px;border-radius:10px;display:inline-block;">' + esc(c.cta.label) + '</a></div>'
+  const cta = ctaUrl
+    ? '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px auto 4px;"><tr><td style="border-radius:10px;background:' + BRAND.accent + ';">' +
+        '<a href="' + esc(ctaUrl) + '" style="' + FONT + 'color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 30px;border-radius:10px;display:inline-block;">' + esc(c.cta.label) + '</a>' +
+      '</td></tr></table>'
     : '';
 
   const table = rowsHtml
     ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;border-collapse:collapse;">' + rowsHtml + '</table>'
     : '';
 
+  const homeLink = o.siteUrl ? '<a href="' + esc(o.siteUrl) + '" style="color:' + BRAND.accent + ';text-decoration:none;">' + esc(o.siteUrl.replace(/^https?:\/\//, '')) + '</a>' : esc(BRAND.name);
+
   return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<meta name="color-scheme" content="light"></head>' +
-    '<body style="margin:0;padding:0;background:' + BRAND.bg + ';">' +
-    '<div style="display:none;max-height:0;overflow:hidden;opacity:0;">' + esc(c.preheader || c.heading || '') + '</div>' +
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:' + BRAND.bg + ';padding:24px 12px;">' +
+    '<meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"></head>' +
+    '<body style="margin:0;padding:0;background:' + BRAND.bg + ';-webkit-font-smoothing:antialiased;">' +
+    '<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">' + esc(c.preheader || c.heading || '') + '</div>' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:' + BRAND.bg + ';padding:28px 12px;">' +
     '<tr><td align="center">' +
-      '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">' +
-        // brand header
-        '<tr><td style="background:' + BRAND.green + ';padding:22px 28px;" align="left">' +
-          '<table role="presentation" cellpadding="0" cellspacing="0"><tr>' +
-            '<td style="padding-right:12px;"><img src="cid:brandlogo" width="40" height="40" alt="" style="display:block;border-radius:8px;background:#fff;padding:4px;"></td>' +
-            '<td style="color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:700;line-height:1.2;">' + esc(BRAND.name) + '</td>' +
-          '</tr></table>' +
+      '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 8px 28px rgba(16,60,40,.10);">' +
+        // brand header — centered landscape logo on the green bar
+        '<tr><td align="center" style="background:' + BRAND.green + ';padding:26px 28px;">' +
+          '<img src="' + esc(logoSrc) + '" width="196" alt="' + esc(BRAND.name) + '" style="display:block;width:196px;max-width:70%;height:auto;border:0;">' +
         '</td></tr>' +
+        // accent divider
+        '<tr><td style="height:4px;line-height:4px;font-size:0;background:' + BRAND.accent + ';">&nbsp;</td></tr>' +
         // body
-        '<tr><td style="padding:28px;font-family:Arial,Helvetica,sans-serif;color:' + BRAND.ink + ';">' +
-          (c.heading ? '<h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:' + BRAND.ink + ';">' + esc(c.heading) + '</h1>' : '') +
-          (c.intro ? '<p style="margin:0 0 4px;font-size:14px;line-height:21px;color:#374151;">' + c.intro + '</p>' : '') +
+        '<tr><td style="padding:32px 32px 28px;' + FONT + 'color:' + BRAND.ink + ';">' +
+          (c.heading ? '<h1 style="margin:0 0 8px;font-size:21px;font-weight:800;color:' + BRAND.ink + ';letter-spacing:-.3px;">' + esc(c.heading) + '</h1>' : '') +
+          (c.intro ? '<p style="margin:0;font-size:14px;line-height:22px;color:#3f4a45;">' + c.intro + '</p>' : '') +
+          (c.bodyHtml || '') +
           highlight + table + cta +
-          (c.footerNote ? '<p style="margin:16px 0 0;font-size:12px;line-height:18px;color:' + BRAND.muted + ';">' + c.footerNote + '</p>' : '') +
+          (c.footerNote ? '<p style="margin:18px 0 0;font-size:12px;line-height:18px;color:' + BRAND.muted + ';">' + c.footerNote + '</p>' : '') +
         '</td></tr>' +
         // footer
-        '<tr><td style="padding:18px 28px 24px;background:#fafbfa;border-top:1px solid ' + BRAND.line + ';font-family:Arial,Helvetica,sans-serif;">' +
-          '<p style="margin:0 0 4px;font-size:12px;color:' + BRAND.muted + ';">' + esc(BRAND.name) + '</p>' +
-          '<p style="margin:0;font-size:11px;line-height:16px;color:#9aa0a6;">This is an automated message about your account activity. This is a fictional demo institution — please do not reply to this email.</p>' +
+        '<tr><td style="padding:20px 32px 26px;background:#f7faf8;border-top:1px solid ' + BRAND.line + ';' + FONT + '">' +
+          '<p style="margin:0 0 5px;font-size:12px;font-weight:700;color:' + BRAND.ink + ';">' + esc(BRAND.name) + '</p>' +
+          '<p style="margin:0 0 8px;font-size:11px;line-height:16px;color:#9aa0a6;">This is an automated message about your account activity. Alliance Federal Credit Union is a fictional demo institution — please do not reply to this email.</p>' +
+          '<p style="margin:0;font-size:11px;color:#9aa0a6;">' + homeLink + ' &nbsp;·&nbsp; &copy; ' + new Date().getFullYear() + '</p>' +
         '</td></tr>' +
       '</table>' +
-      '<div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#9aa0a6;margin-top:14px;">&copy; ' + new Date().getFullYear() + ' ' + esc(BRAND.name) + '</div>' +
     '</td></tr></table></body></html>';
+}
+
+// Plain-text alternative (improves deliverability + accessibility).
+function toText(content, siteUrl) {
+  const c = content || {};
+  const strip = function (s) { return String(s || '').replace(/<br\s*\/?>(?=)/gi, '\n').replace(/<[^>]+>/g, '').replace(/\s+\n/g, '\n').trim(); };
+  const lines = [];
+  if (c.heading) lines.push(c.heading, '');
+  if (c.intro) lines.push(strip(c.intro), '');
+  if (c.bodyHtml) lines.push(strip(c.bodyHtml), '');
+  if (c.highlight) lines.push(c.highlight.amount + (c.highlight.label ? '  (' + c.highlight.label + ')' : ''), '');
+  (c.rows || []).forEach(function (r) { lines.push(r.label + ': ' + r.value); });
+  if (c.cta) { const u = resolveUrl(c.cta.path || c.cta.url, siteUrl); if (u) lines.push('', c.cta.label + ': ' + u); }
+  if (c.footerNote) lines.push('', strip(c.footerNote));
+  lines.push('', '— ' + BRAND.name + ' (fictional demo). Please do not reply.');
+  return lines.join('\n');
 }
 
 function greeting(user) {
@@ -201,6 +239,7 @@ function buildTransferSubmitted(user, d) {
       highlight: { amount: money(d.amountCents), label: directionLabel(d.kind, d.meta, d.direction) + ' · ' + label, color: BRAND.ink },
       statusBadge: { label: 'Pending', bg: '#fff2d6', fg: '#a06b00' },
       rows: rows,
+      cta: { label: 'View in your account', path: '/user/dashboard' },
       footerNote: 'If you didn’t make this request, contact support right away.',
     },
   };
@@ -224,6 +263,7 @@ function buildTransferApproved(user, d) {
       highlight: { amount: (incoming ? '+' : '−') + money(d.amountCents), label: label, color: incoming ? '#1a7f37' : BRAND.ink },
       statusBadge: { label: 'Completed', bg: '#e6f4ea', fg: '#1a7f37' },
       rows: rows,
+      cta: { label: 'View in your account', path: '/user/dashboard' },
     },
   };
 }
@@ -245,6 +285,7 @@ function buildTransferRejected(user, d) {
       highlight: { amount: money(d.amountCents), label: label, color: BRAND.muted },
       statusBadge: { label: 'Declined', bg: '#eef1f0', fg: '#7a857f' },
       rows: rows,
+      cta: { label: 'View in your account', path: '/user/dashboard' },
     },
   };
 }
@@ -261,6 +302,7 @@ function buildLogin(user, d) {
       heading: 'New sign-in detected',
       intro: greeting(user) + '<br>We noticed a sign-in to your <b>' + esc(BRAND.name) + '</b> account. If this was you, no action is needed.',
       rows: rows,
+      cta: { label: 'Review recent activity', path: '/user/dashboard' },
       footerNote: 'If this wasn’t you, change your password and contact support immediately.',
     },
   };
@@ -273,17 +315,25 @@ const BUILDERS = {
   login: buildLogin,
 };
 
-/* ---------- send ---------- */
+/* ---------- send ----------
+   msg = { to, subject, content }. Renders HTML + text here so the logo source
+   (hosted Site URL vs inline CID) and button links resolve from settings. */
 async function sendRaw(settings, msg) {
   const { tx, live } = getTransporter(settings);
+  const hosted = !!settings.siteUrl;
+  const logoSrc = hosted ? settings.siteUrl + logo.path : 'cid:brandlogo';
+  const from = fromHeader(settings);
   const mail = {
-    from: fromHeader(settings),
+    from: from,
+    replyTo: from,
     to: msg.to,
     subject: msg.subject,
-    html: msg.html,
-    text: msg.text || undefined,
-    attachments: [{ filename: logo.filename, content: logo.buffer(), contentType: logo.contentType, cid: 'brandlogo' }],
+    html: renderEmail(msg.content, { logoSrc: logoSrc, siteUrl: settings.siteUrl }),
+    text: toText(msg.content, settings.siteUrl),
+    headers: { 'X-Auto-Response-Suppress': 'OOF, AutoReply' },
   };
+  // Only attach the logo when we're not hosting it over https.
+  if (!hosted) mail.attachments = [{ filename: logo.filename, content: logo.buffer(), contentType: logo.contentType, cid: 'brandlogo' }];
   const info = await tx.sendMail(mail);
   if (!live) console.log('[email] (preview — SMTP not configured) to=%s subject=%s', msg.to, msg.subject);
   else console.log('[email] sent to=%s subject=%s id=%s', msg.to, msg.subject, info.messageId);
@@ -300,7 +350,7 @@ async function sendEventEmail(user, eventType, data) {
     const builder = BUILDERS[eventType];
     if (!builder) return { ok: false, skipped: 'unknown-event' };
     const built = builder(user, data || {});
-    return await sendRaw(settings, { to: user.email, subject: built.subject, html: renderEmail(built.content), text: built.content.preheader });
+    return await sendRaw(settings, { to: user.email, subject: built.subject, content: built.content });
   } catch (e) {
     console.error('[email] sendEventEmail failed (non-fatal):', e && e.message);
     return { ok: false, error: e && e.message };
@@ -311,18 +361,15 @@ async function sendEventEmail(user, eventType, data) {
 async function sendCustomEmail(user, subject, message) {
   const settings = await getEmailSettings();
   const paras = String(message || '').split(/\n{2,}/).map(function (p) {
-    return '<p style="margin:0 0 12px;font-size:14px;line-height:21px;color:#374151;">' + esc(p).replace(/\n/g, '<br>') + '</p>';
+    return '<p style="margin:0 0 14px;font-size:14px;line-height:22px;color:#3f4a45;">' + esc(p).replace(/\n/g, '<br>') + '</p>';
   }).join('');
   const content = {
     preheader: subject,
     heading: subject,
     intro: greeting(user),
-    footerNote: '',
+    bodyHtml: '<div style="margin-top:14px;">' + paras + '</div>',
   };
-  // Put the message body between intro and footer via a custom render.
-  const html = renderEmail({ preheader: subject, heading: subject, intro: greeting(user) + '<br>' + '<span></span>' })
-    .replace('<span></span>', paras);
-  return await sendRaw(settings, { to: user.email, subject: subject, html: html, text: message });
+  return await sendRaw(settings, { to: user.email, subject: subject, content: content });
 }
 
 // Admin: verify the SMTP config with a self-addressed test email.
@@ -338,7 +385,7 @@ async function sendTestEmail(to) {
       { label: 'Sent', value: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) },
     ],
   };
-  return await sendRaw(settings, { to: to, subject: 'Test email — Alliance email settings', html: renderEmail(content), text: 'SMTP test successful.' });
+  return await sendRaw(settings, { to: to, subject: 'Test email — Alliance email settings', content: content });
 }
 
 module.exports = {

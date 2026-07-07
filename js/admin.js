@@ -440,7 +440,9 @@
         '<h3 style="margin:0;">Email automation ' + statusPill + '</h3>' +
         '<label class="toggle-row" style="margin:0;"><input type="checkbox" id="em-enabled"' + (s.enabled ? ' checked' : '') + '> Enabled</label>' +
       '</div>' +
-      '<div class="muted" style="margin-bottom:12px;">Sends branded emails from your Gmail account. Use a Google <b>App Password</b> (Account → Security → 2-Step Verification → App passwords), not your normal password.</div>' +
+      '<div class="muted" style="margin-bottom:12px;">Sends branded emails from your Gmail account. Use a Google <b>App Password</b> (Account → Security → 2-Step Verification → App passwords), not your normal password. For best delivery, keep the <b>From email</b> equal to the Gmail address below.</div>' +
+      '<div class="field"><label for="em-siteurl">Site URL (for the logo image &amp; button links)</label>' +
+        '<input id="em-siteurl" type="text" value="' + esc(s.siteUrl || '') + '" placeholder="https://your-site.vercel.app"></div>' +
       '<div class="grid2">' +
         field('em-host', 'SMTP host', 'text', s.smtp.host) +
         field('em-port', 'Port', 'number', s.smtp.port) +
@@ -482,6 +484,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-ev]'), function (c) { events[c.getAttribute('data-ev')] = c.checked; });
     var body = {
       enabled: el('em-enabled').checked,
+      siteUrl: el('em-siteurl').value.trim(),
       smtp: {
         host: el('em-host').value.trim(),
         port: Number(el('em-port').value) || 465,

@@ -12,6 +12,7 @@ const { getEmailSettings, saveEmailSettings, isConfigured, sendTestEmail, sendCu
 function publicSettings(s) {
   return {
     enabled: s.enabled !== false,
+    siteUrl: s.siteUrl || '',
     smtp: { host: s.smtp.host, port: s.smtp.port, secure: !!s.smtp.secure, user: s.smtp.user, hasPassword: !!s.smtp.pass },
     from: { name: s.from.name, email: s.from.email },
     events: s.events,
@@ -31,6 +32,7 @@ module.exports = async (req, res) => {
     const body = await readBody(req);
     const patch = {};
     if (body.enabled !== undefined) patch.enabled = !!body.enabled;
+    if (body.siteUrl !== undefined) patch.siteUrl = body.siteUrl;
     if (body.smtp) {
       patch.smtp = {};
       ['host', 'port', 'secure', 'user', 'pass'].forEach((k) => { if (body.smtp[k] !== undefined) patch.smtp[k] = body.smtp[k]; });
