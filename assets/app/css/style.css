@@ -5347,14 +5347,3 @@ body.theme-dark .zl-faq-q { color: #eef2ef; }
 .header.header-logo-app .header-icon,
 .header.header-logo-app .header-icon-1 { height: 42px; line-height: 42px; }
 .page-content .page-title { margin-top: 4px !important; }
-
-/* Profile page: avatar + icon-prefixed detail rows */
-.pf-avatar { width: 96px; height: 96px; border-radius: 50%; background: #e6f2ea center/cover no-repeat; border: 3px solid #e6f2ea; box-shadow: 0 4px 14px rgba(0,0,0,.12); }
-.pf-row { display: flex; align-items: center; padding: 11px 0; border-bottom: 1px solid #eef1f0; }
-.pf-row:last-child { border-bottom: 0; }
-.pf-ic { width: 38px; height: 38px; border-radius: 10px; background: #e6f2ea; color: #0f6b3b; display: flex; align-items: center; justify-content: center; font-size: 15px; flex: 0 0 auto; }
-.pf-main { padding-left: 12px; min-width: 0; }
-.pf-label { font-size: 11.5px; color: #8a8f8c; letter-spacing: .02em; }
-.pf-val { font-size: 14.5px; font-weight: 600; color: #13120f; word-break: break-word; }
-body.theme-dark .pf-row { border-color: rgba(255,255,255,.06); }
-body.theme-dark .pf-val { color: #eef2ef; }

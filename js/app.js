@@ -397,33 +397,22 @@
 
   /* ---------- profile page ---------- */
   function renderProfile(me) {
-    // Icon-prefixed detail row; only rendered when there's a value to show.
-    function pfRow(icon, label, val) {
-      if (!val) return '';
-      return '<div class="pf-row">' +
-        '<div class="pf-ic"><i class="fas ' + icon + '"></i></div>' +
-        '<div class="pf-main"><div class="pf-label">' + esc(label) + '</div>' +
-        '<div class="pf-val">' + esc(val) + '</div></div>' +
-      '</div>';
+    function row(label, val) {
+      return '<div class="d-flex py-2"><div class="color-theme font-13">' + esc(label) + '</div>' +
+        '<div class="ms-auto font-600 font-13 text-end">' + esc(val || '—') + '</div></div><div class="divider"></div>';
     }
     var url = me.profile.photoUrl || DEFAULT_AVATAR;
     var fullName = me.profile.displayName || me.profile.firstName || me.username;
-    var memberSince = me.createdAt ? new Date(me.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '';
     setContent(shell('My Profile',
       '<div class="card card-style"><div class="content text-center">' +
-        '<div class="pf-avatar mx-auto" style="background-image:url(\'' + url + '\');"></div>' +
-        '<h4 class="mb-0 mt-2">' + esc(fullName) + '</h4>' +
-        '<span class="color-theme font-12">@' + esc(me.username) + '</span>' +
+        '<div class="mx-auto mb-2" style="width:90px;height:90px;border-radius:50%;background:#e6f2ea center/cover no-repeat;background-image:url(\'' + url + '\');"></div>' +
+        '<h4 class="mb-0">' + esc(fullName) + '</h4>' +
       '</div></div>' +
       '<div class="card card-style"><div class="content">' +
-        '<h6 class="font-14 mb-2" style="font-weight:600!important;">Personal details</h6>' +
-        pfRow('fa-user', 'First name', me.profile.firstName) +
-        pfRow('fa-id-card', 'Full name', fullName) +
-        pfRow('fa-at', 'Username', '@' + me.username) +
-        pfRow('fa-envelope', 'Email', me.email) +
-        pfRow('fa-phone-alt', 'Phone', me.profile.phone) +
-        pfRow('fa-map-marker-alt', 'Address', me.profile.address) +
-        pfRow('fa-calendar-alt', 'Member since', memberSince) +
+        row('Full name', fullName) +
+        row('Email', me.email) +
+        row('Phone', me.profile.phone) +
+        row('Address', me.profile.address) +
       '</div></div>' +
       '<div class="mx-3"><a href="#" data-action="logout" class="btn btn-full btn-m rounded-s font-600 bg-red-dark">Log out</a></div>'));
   }
