@@ -303,6 +303,64 @@
     el('editor').innerHTML = '<div class="empty">Select a user to edit, or create a new one.</div>';
   }
 
+  /* ---------- pending transfer approvals ---------- */
+  function fmtWhen(iso) {
+    return iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  }
+  function approvalDest(t) {
+    var m = t.meta || {};
+    if (t.kind === 'internal' || t.kind === 'deposit') return t.toAccount ? ('to ' + t.toAccount.name) : '';
+    if (t.kind === 'domestic') return 'to ' + (m.accountname || '') + (m.bankname ? (' · ' + m.bankname) : '');
+    if (t.kind === 'wire') return 'to ' + [m.r_fname, m.r_lname].filter(Boolean).join(' ') + (m.r_bankname ? (' · ' + m.r_bankname) : '');
+    if (t.kind === 'zelle') return 'to ' + (m.contact || '');
+    return '';
+  }
+  function renderApprovals(list) {
+    var box = el('approvals-list'), cnt = el('approvals-count');
+    if (cnt) cnt.textContent = list.length ? String(list.length) : '';
+    if (!list.length) { box.innerHTML = '<div class="approvals-empty">No pending transfers.</div>'; return; }
+    box.innerHTML = list.map(function (t) {
+      var dir = t.direction === 'in' ? 'in' : 'out';
+      var sign = dir === 'in' ? '+' : '−';
+      var src = t.fromAccount ? ('from ' + t.fromAccount.name + ' ') : '';
+      return '<div class="appr-item">' +
+        '<div class="appr-main">' +
+          '<div><span class="appr-kind">' + esc(t.kind) + '</span> ' +
+            '<b>' + esc((t.user && t.user.displayName) || '') + '</b> <span class="muted">@' + esc((t.user && t.user.username) || '') + '</span></div>' +
+          '<div class="appr-meta">' + esc(src) + esc(approvalDest(t)) + ' · ' + esc(fmtWhen(t.date)) +
+            (t.description ? (' · ' + esc(t.description)) : '') + '</div>' +
+        '</div>' +
+        '<div class="appr-amt ' + dir + '">' + sign + money(t.amount) + '</div>' +
+        '<div class="appr-actions">' +
+          '<button class="btn btn-primary appr-approve" data-id="' + esc(t.transferId) + '">Approve</button>' +
+          '<button class="btn btn-danger appr-reject" data-id="' + esc(t.transferId) + '">Reject</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('.appr-approve'), function (b) {
+      b.addEventListener('click', function () { actOnTransfer(b.getAttribute('data-id'), 'approve', b); });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('.appr-reject'), function (b) {
+      b.addEventListener('click', function () { actOnTransfer(b.getAttribute('data-id'), 'reject', b); });
+    });
+  }
+  async function loadApprovals() {
+    try {
+      var data = await api('/api/admin/transfers?status=pending');
+      renderApprovals(data.transfers || []);
+    } catch (e) { el('approvals-list').innerHTML = '<div class="approvals-empty">Could not load approvals.</div>'; }
+  }
+  async function actOnTransfer(transferId, action, btn) {
+    if (btn) btn.disabled = true;
+    try {
+      await api('/api/admin/transfers', 'POST', { transferId: transferId, action: action });
+      toast(action === 'approve' ? 'Transfer approved' : 'Transfer rejected');
+      await loadApprovals();
+      await loadUsers();
+      if (state.selectedId) await selectUser(state.selectedId);
+    } catch (e) { toast(e.message, true); if (btn) btn.disabled = false; }
+  }
+
   /* ---------- small field builders ---------- */
   function field(id, label, type, value) {
     return '<div class="field"><label for="' + id + '">' + esc(label) + '</label>' +
@@ -395,6 +453,9 @@
       fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).finally(function () { location.href = '/login'; });
     });
     el('new-user-btn').addEventListener('click', renderNewUser);
+    var refresh = el('approvals-refresh');
+    if (refresh) refresh.addEventListener('click', loadApprovals);
     loadUsers();
+    loadApprovals();
   })();
 })();

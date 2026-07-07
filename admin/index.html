@@ -60,6 +60,17 @@
     .avatar-actions .btn { padding: 8px 12px; display: inline-block; }
     .hidden-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
     .avatar-hint { margin-top: 6px; }
+    .approvals-wrap { max-width: 1200px; margin: 0 auto; padding: 18px 18px 0; }
+    .appr-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #eef1f0; flex-wrap: wrap; }
+    .appr-item:last-child { border-bottom: 0; }
+    .appr-main { flex: 1; min-width: 220px; }
+    .appr-kind { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; background: #eef4f1; color: #0f6b3b; padding: 2px 8px; border-radius: 20px; }
+    .appr-meta { color: #7a857f; font-size: 12px; margin-top: 3px; }
+    .appr-amt { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }
+    .appr-amt.in { color: #1c7c3f; }
+    .appr-amt.out { color: #c0392b; }
+    .appr-actions { display: flex; gap: 8px; }
+    .approvals-empty { color: #7a857f; font-size: 13px; padding: 6px 0; }
   </style>
 </head>
 <body>
@@ -69,6 +80,16 @@
     <span class="sp"></span>
     <span id="admin-name" class="muted" style="color:#dceee3;"></span>
     <button class="btn btn-ghost" id="logout-btn">Log out</button>
+  </div>
+
+  <div class="approvals-wrap">
+    <div class="card" id="approvals-card">
+      <div class="row-flex" style="justify-content:space-between;margin-bottom:8px;">
+        <h3 style="margin:0;">Pending approvals <span id="approvals-count" class="badge admin" style="background:#fff2d6;color:#a06b00;"></span></h3>
+        <button class="btn btn-light" id="approvals-refresh">Refresh</button>
+      </div>
+      <div id="approvals-list"><div class="approvals-empty">Loading…</div></div>
+    </div>
   </div>
 
   <div class="layout">
