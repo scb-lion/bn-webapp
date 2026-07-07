@@ -317,7 +317,7 @@
     var data = res.ok ? await res.json() : { transactions: [] };
     setContent(
       headerBar() +
-      '<div class="page-title page-title-large">' +
+      '<div class="page-title page-title-large acct-detail-hero">' +
         '<div class="d-flex align-items-start">' +
           '<div style="flex:1;min-width:0;"><h2 class="color-white mb-0">' + esc(acct.type) + '</h2>' +
             '<div class="color-white acct-hero-num">x' + esc(acct.number) + '</div></div>' +

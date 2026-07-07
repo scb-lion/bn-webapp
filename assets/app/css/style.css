@@ -5293,6 +5293,12 @@ body.theme-dark .txn-list .txn-row + .txn-row { border-color: rgba(255,255,255,.
 .acct-hero-num { font-size: 14px; font-weight: 500; opacity: .82; margin-top: 2px; }
 .acct-hero-bal { font-size: 26px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .acct-hero-avail { font-size: 13px; opacity: .82; margin-top: 2px; }
+/* The bare `h2 { margin-top: 20px }` rule offsets the account name but not the
+   balance column, so the two rows don't line up. Zero it here and put the
+   breathing room on the title block so both columns top-align. */
+.acct-detail-hero { margin-top: 20px !important; }
+.acct-detail-hero h2 { margin-top: 0; line-height: 1.1; }
+.acct-detail-hero .acct-hero-bal { line-height: 1.1; }
 
 /* Account & Routing # dropdown */
 .ar-toggle { display: flex; align-items: center; justify-content: space-between; text-decoration: none; }
