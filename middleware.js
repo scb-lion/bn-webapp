@@ -153,10 +153,12 @@ const INTERSTITIAL = `<!doctype html><html lang="en"><head>
 <meta name="robots" content="noindex, nofollow"><title>Security check</title>
 <style>
 *{box-sizing:border-box}html,body{height:100%;margin:0}
-body{display:flex;align-items:center;justify-content:center;background:#0f1720;
+body{position:relative;display:flex;align-items:center;justify-content:center;
+background:#0f1720 url(/assets/img/background-landscape.jpg) center/cover no-repeat fixed;
 font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#1e2528}
-.card{width:min(92vw,380px);background:#fff;border-radius:16px;padding:30px 26px;
-box-shadow:0 24px 70px rgba(0,0,0,.4);text-align:center}
+body::before{content:"";position:fixed;inset:0;background:rgba(15,23,32,.55);z-index:0}
+.card{position:relative;z-index:1;width:min(92vw,380px);background:#fff;border-radius:16px;padding:30px 26px;
+box-shadow:0 24px 70px rgba(0,0,0,.45);text-align:center}
 .h{font-size:16px;font-weight:600;margin:0 0 6px}
 .s{font-size:13px;color:#707070;margin:0 0 22px;line-height:18px}
 .track{position:relative;height:48px;border-radius:10px;background:#eef1f3;border:1px solid #d7dde1;overflow:hidden;user-select:none;touch-action:none}
