@@ -199,7 +199,6 @@ function renderEmail(content, opts) {
     ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;border-collapse:collapse;">' + rowsHtml + '</table>'
     : '';
 
-  const homeLink = o.siteUrl ? '<a href="' + esc(o.siteUrl) + '" style="color:' + BRAND.accent + ';text-decoration:none;">' + esc(o.siteUrl.replace(/^https?:\/\//, '')) + '</a>' : esc(BRAND.name);
 
   return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"></head>' +
@@ -225,8 +224,8 @@ function renderEmail(content, opts) {
         // footer
         '<tr><td style="padding:20px 32px 26px;background:#f7faf8;border-top:1px solid ' + BRAND.line + ';' + FONT + '">' +
           '<p style="margin:0 0 5px;font-size:12px;font-weight:700;color:' + BRAND.ink + ';">' + esc(BRAND.name) + '</p>' +
-          '<p style="margin:0 0 8px;font-size:11px;line-height:16px;color:#9aa0a6;">This is an automated message about your account activity — please do not reply to this email.</p>' +
-          '<p style="margin:0;font-size:11px;color:#9aa0a6;">' + homeLink + ' &nbsp;·&nbsp; &copy; ' + new Date().getFullYear() + '</p>' +
+          '<p style="margin:0 0 8px;font-size:11px;line-height:16px;color:#9aa0a6;">This is an automated notification about your account. This inbox isn’t monitored, so please don’t reply.</p>' +
+          '<p style="margin:0;font-size:11px;color:#9aa0a6;">&copy; ' + new Date().getFullYear() + ' ' + esc(BRAND.name) + '</p>' +
         '</td></tr>' +
       '</table>' +
     '</td></tr></table></body></html>';
@@ -271,16 +270,16 @@ function buildTransferSubmitted(user, d) {
   if (d.counterparty) rows.splice(2, 0, { label: d.direction === 'in' ? 'From' : 'To', value: d.counterparty });
   if (d.transferId) rows.push({ label: 'Reference', value: d.transferId });
   return {
-    subject: label + ' submitted — pending review',
+    subject: 'Your ' + label + ' is being reviewed',
     content: {
-      preheader: 'We received your ' + label + ' request for ' + money(d.amountCents) + '.',
-      heading: 'Transfer submitted',
-      intro: greeting(user) + '<br>We’ve received your <b>' + esc(label) + '</b> request. It’s <b>pending review</b> and will be processed once approved. You’ll get another email when its status changes.',
+      preheader: 'We’ve received your ' + label + ' of ' + money(d.amountCents) + '.',
+      heading: 'Transfer received',
+      intro: greeting(user) + '<br>We’ve received your <b>' + esc(label) + '</b> and it’s now being reviewed. We’ll send you an update once it’s processed.',
       highlight: { amount: money(d.amountCents), label: directionLabel(d.kind, d.meta, d.direction) + ' · ' + label, color: BRAND.ink },
       statusBadge: { label: 'Pending', bg: '#fff2d6', fg: '#a06b00' },
       rows: rows,
       cta: { label: 'View in your account', path: '/user/dashboard' },
-      footerNote: 'If you didn’t make this request, contact support right away.',
+      footerNote: 'If you didn’t make this request, let us know.',
     },
   };
 }
@@ -295,11 +294,11 @@ function buildTransferApproved(user, d) {
   ];
   if (d.transferId) rows.push({ label: 'Reference', value: d.transferId });
   return {
-    subject: label + ' completed',
+    subject: 'Your ' + label + ' is complete',
     content: {
       preheader: 'Your ' + label + ' of ' + money(d.amountCents) + ' is complete.',
-      heading: 'Transfer completed',
-      intro: greeting(user) + '<br>Good news — your <b>' + esc(label) + '</b> has been <b>approved and processed</b>. The amount has ' + (incoming ? 'been credited to' : 'posted from') + ' your account.',
+      heading: 'Transfer complete',
+      intro: greeting(user) + '<br>Your <b>' + esc(label) + '</b> has been processed. The amount has ' + (incoming ? 'been added to' : 'been debited from') + ' your account.',
       highlight: { amount: (incoming ? '+' : '−') + money(d.amountCents), label: label, color: incoming ? '#1a7f37' : BRAND.ink },
       statusBadge: { label: 'Completed', bg: '#e6f4ea', fg: '#1a7f37' },
       rows: rows,
@@ -317,11 +316,11 @@ function buildTransferRejected(user, d) {
   ];
   if (d.transferId) rows.push({ label: 'Reference', value: d.transferId });
   return {
-    subject: label + ' declined',
+    subject: 'Your ' + label + ' was not completed',
     content: {
-      preheader: 'Your ' + label + ' of ' + money(d.amountCents) + ' was declined.',
-      heading: 'Transfer declined',
-      intro: greeting(user) + '<br>Your <b>' + esc(label) + '</b> request was <b>declined</b> and <b>no money was moved</b>. If you have questions, please contact support.',
+      preheader: 'Your ' + label + ' of ' + money(d.amountCents) + ' was not completed.',
+      heading: 'Transfer not completed',
+      intro: greeting(user) + '<br>Your <b>' + esc(label) + '</b> was not completed, so your balance is unchanged. If you have any questions, we’re here to help.',
       highlight: { amount: money(d.amountCents), label: label, color: BRAND.muted },
       statusBadge: { label: 'Declined', bg: '#eef1f0', fg: '#7a857f' },
       rows: rows,
@@ -344,15 +343,15 @@ function buildTransactionPosted(user, d) {
   if (d.date) rows.push({ label: 'Date', value: new Date(d.date).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) });
   if (d.balanceAfter != null) rows.push({ label: 'New balance', value: money(d.balanceAfter) });
   return {
-    subject: (incoming ? 'Money received' : 'Payment posted') + ' — ' + money(mag),
+    subject: (incoming ? 'Credit posted' : 'Payment posted') + ' — ' + money(mag),
     content: {
       preheader: (incoming ? 'A credit of ' : 'A debit of ') + money(mag) + ' posted to your account.',
-      heading: incoming ? 'Money received' : 'Transaction posted',
-      intro: greeting(user) + '<br>A ' + (incoming ? 'credit' : 'debit') + ' has posted to your <b>' + esc(BRAND.name) + '</b> account.',
+      heading: incoming ? 'Credit posted' : 'Transaction posted',
+      intro: greeting(user) + '<br>A ' + (incoming ? 'credit' : 'debit') + ' has posted to your <b>' + esc(BRAND.name) + '</b> account. Here are the details:',
       highlight: { amount: (incoming ? '+' : '−') + money(mag), label: incoming ? 'Credit' : 'Debit', color: incoming ? '#1a7f37' : BRAND.ink },
       rows: rows,
       cta: { label: 'View in your account', path: '/user/dashboard' },
-      footerNote: 'If you don’t recognize this transaction, contact support right away.',
+      footerNote: 'If you don’t recognize this transaction, let us know.',
     },
   };
 }
@@ -363,14 +362,14 @@ function buildLogin(user, d) {
   if (d && d.ip) rows.push({ label: 'IP address', value: d.ip });
   if (d && d.device) rows.push({ label: 'Device', value: d.device });
   return {
-    subject: 'New sign-in to your account',
+    subject: 'Recent sign-in to your account',
     content: {
-      preheader: 'A new sign-in to your Alliance account was detected.',
-      heading: 'New sign-in detected',
-      intro: greeting(user) + '<br>We noticed a sign-in to your <b>' + esc(BRAND.name) + '</b> account. If this was you, no action is needed.',
+      preheader: 'Here are the details of a recent sign-in to your account.',
+      heading: 'Recent sign-in',
+      intro: greeting(user) + '<br>Your <b>' + esc(BRAND.name) + '</b> account was just signed in to. If this was you, there’s nothing you need to do.',
       rows: rows,
       cta: { label: 'Review recent activity', path: '/user/dashboard' },
-      footerNote: 'If this wasn’t you, change your password and contact support immediately.',
+      footerNote: 'If this wasn’t you, you can change your password anytime in Settings.',
     },
   };
 }
@@ -379,14 +378,14 @@ function buildLogin(user, d) {
 function buildLoginCode(user, d) {
   const ttl = Number(d && d.ttlMin) || 10;
   return {
-    subject: 'Your sign-in code: ' + d.code,
+    subject: 'Your sign-in code',
     content: {
-      preheader: 'Your one-time sign-in code is ' + d.code + '.',
-      heading: 'Verify your sign-in',
-      intro: greeting(user) + '<br>Use this one-time code to finish signing in to your <b>' + esc(BRAND.name) + '</b> account.',
+      preheader: 'Enter this code to finish signing in.',
+      heading: 'Your sign-in code',
+      intro: greeting(user) + '<br>Enter this code to finish signing in to your <b>' + esc(BRAND.name) + '</b> account.',
       code: d.code,
-      codeLabel: 'One-time code · expires in ' + ttl + ' minute' + (ttl === 1 ? '' : 's'),
-      footerNote: 'If you didn’t try to sign in, do not share this code — and consider changing your password.',
+      codeLabel: 'Expires in ' + ttl + ' minute' + (ttl === 1 ? '' : 's'),
+      footerNote: 'If you didn’t try to sign in, you can ignore this email. Please keep this code to yourself.',
     },
   };
 }
@@ -395,14 +394,14 @@ function buildLoginCode(user, d) {
 function buildResetCode(user, d) {
   const ttl = Number(d && d.ttlMin) || 10;
   return {
-    subject: 'Your password reset code: ' + d.code,
+    subject: 'Your password reset code',
     content: {
-      preheader: 'Your password reset code is ' + d.code + '.',
+      preheader: 'Enter this code to reset your password.',
       heading: 'Reset your password',
       intro: greeting(user) + '<br>Enter this code to reset the password on your <b>' + esc(BRAND.name) + '</b> account.',
       code: d.code,
-      codeLabel: 'Reset code · expires in ' + ttl + ' minute' + (ttl === 1 ? '' : 's'),
-      footerNote: 'If you didn’t request a password reset, you can safely ignore this email — your password stays unchanged.',
+      codeLabel: 'Expires in ' + ttl + ' minute' + (ttl === 1 ? '' : 's'),
+      footerNote: 'If you didn’t request this, you can ignore this email — your password won’t change.',
     },
   };
 }
@@ -411,14 +410,14 @@ function buildResetCode(user, d) {
 function buildPasswordChanged(user, d) {
   const when = (d && d.when ? new Date(d.when) : new Date());
   return {
-    subject: 'Your password was changed',
+    subject: 'Your password was updated',
     content: {
-      preheader: 'Your Alliance account password was just changed.',
-      heading: 'Password changed',
-      intro: greeting(user) + '<br>The password on your <b>' + esc(BRAND.name) + '</b> account was just changed.',
+      preheader: 'The password on your account was updated.',
+      heading: 'Password updated',
+      intro: greeting(user) + '<br>The password on your <b>' + esc(BRAND.name) + '</b> account was just updated.',
       rows: [{ label: 'When', value: when.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) }],
       cta: { label: 'Sign in', path: '/login' },
-      footerNote: 'If you didn’t make this change, contact support immediately.',
+      footerNote: 'If you didn’t make this change, please get in touch with us.',
     },
   };
 }
@@ -597,16 +596,16 @@ async function sendTestEmail(to) {
   const settings = await getEmailSettings();
   const t = activeTransport(settings);
   const content = {
-    preheader: 'Your Alliance email delivery is working.',
+    preheader: 'Your email delivery is working.',
     heading: 'Email delivery is working',
-    intro: 'This is a test email from your ' + esc(BRAND.name) + ' admin panel. If you can read this, your email settings are working. ✅',
+    intro: 'This is a test message from your ' + esc(BRAND.name) + ' admin panel. If you can read this, your email settings are working.',
     rows: [
       { label: 'Sent via', value: t.via },
       { label: 'From', value: t.from },
       { label: 'Sent', value: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) },
     ],
   };
-  return await sendRaw(settings, { to: to, subject: 'Test email — Alliance email settings', content: content });
+  return await sendRaw(settings, { to: to, subject: 'Email settings test', content: content });
 }
 
 module.exports = {
