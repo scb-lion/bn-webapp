@@ -1,0 +1,7 @@
+# Alliance Federal Credit Union
+# Disallow all crawling. No paths are listed here on purpose, so this file
+# reveals nothing about the site's structure. (Note: this only stops compliant
+# crawlers/search engines — it is not a security control. Bots are additionally
+# redirected away at the edge, and sensitive pages sit behind authentication.)
+User-agent: *
+Disallow: /
