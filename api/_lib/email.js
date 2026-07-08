@@ -582,16 +582,27 @@ async function sendPasswordChanged(user) {
   }
 }
 
-// Admin: verify the SMTP config with a self-addressed test email.
+// Which transport sendRaw will use for these settings, and the From address it
+// sends with — so the test email body matches the real sender (not the old
+// hardcoded SMTP/Gmail wording).
+function activeTransport(s) {
+  const name = ((s.from && s.from.name) || BRAND.name).replace(/"/g, '');
+  if (resendConfigured(s)) return { via: 'Resend', from: '"' + name + '" <' + s.resend.from + '>' };
+  if (isConfigured(s)) return { via: 'Gmail SMTP', from: fromHeader(s) };
+  return { via: 'Preview (no live sender configured)', from: fromHeader(s) };
+}
+
+// Admin: verify email delivery with a self-addressed test email.
 async function sendTestEmail(to) {
   const settings = await getEmailSettings();
+  const t = activeTransport(settings);
   const content = {
-    preheader: 'Your Alliance email settings are working.',
-    heading: 'SMTP test successful',
-    intro: 'This is a test email from your ' + esc(BRAND.name) + ' admin panel. If you can read this, your SMTP settings are working. ✅',
+    preheader: 'Your Alliance email delivery is working.',
+    heading: 'Email delivery is working',
+    intro: 'This is a test email from your ' + esc(BRAND.name) + ' admin panel. If you can read this, your email settings are working. ✅',
     rows: [
-      { label: 'Host', value: settings.smtp.host + ':' + settings.smtp.port },
-      { label: 'From', value: fromHeader(settings) },
+      { label: 'Sent via', value: t.via },
+      { label: 'From', value: t.from },
       { label: 'Sent', value: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) },
     ],
   };
