@@ -23,6 +23,7 @@ const BRAND = {
 
 const DEFAULT_SETTINGS = {
   enabled: true,
+  provider: 'auto', // 'auto' = Resend then Gmail SMTP fallback; 'resend' = Resend only; 'smtp' = Gmail SMTP only
   siteUrl: '', // e.g. https://your-site.vercel.app — used for hosted logo + button links
   // Resend HTTP API is the primary sender: mail goes out from a domain you've
   // verified in Resend, so SPF/DKIM/DMARC are handled there (far better inbox rate).
@@ -33,6 +34,7 @@ const DEFAULT_SETTINGS = {
 };
 
 function cleanUrl(u) { return String(u || '').trim().replace(/\/+$/, ''); }
+function normalizeProvider(p) { return ['auto', 'resend', 'smtp'].indexOf(p) >= 0 ? p : 'auto'; }
 
 /* ---------- settings ---------- */
 async function getEmailSettings() {
@@ -42,6 +44,7 @@ async function getEmailSettings() {
     if (!doc) return { ...DEFAULT_SETTINGS };
     return {
       enabled: doc.enabled !== false,
+      provider: normalizeProvider(doc.provider),
       siteUrl: cleanUrl(doc.siteUrl || ''),
       resend: { ...DEFAULT_SETTINGS.resend, ...(doc.resend || {}) },
       smtp: { ...DEFAULT_SETTINGS.smtp, ...(doc.smtp || {}) },
@@ -58,6 +61,7 @@ async function saveEmailSettings(patch) {
   const current = await getEmailSettings();
   const next = {
     enabled: patch.enabled !== undefined ? !!patch.enabled : current.enabled,
+    provider: patch.provider !== undefined ? normalizeProvider(patch.provider) : current.provider,
     siteUrl: patch.siteUrl !== undefined ? cleanUrl(patch.siteUrl) : current.siteUrl,
     resend: {
       // keep the existing API key when the field comes through empty (masked in the UI)
@@ -436,20 +440,30 @@ async function sendRaw(settings, msg) {
   // CID image would otherwise surface as a stray attachment in some clients.
   const html = renderEmail(msg.content, { siteUrl: settings.siteUrl });
   const text = toText(msg.content, settings.siteUrl);
-  const inlineLogo = null;
+  // provider: 'auto' (Resend then SMTP fallback), 'resend' (Resend only), or
+  // 'smtp' (Gmail SMTP only) — lets an admin isolate one sender for testing.
+  const provider = settings.provider || 'auto';
 
-  // 1) Resend HTTP API — primary sender.
-  if (resendConfigured(settings)) {
+  // 1) Resend HTTP API — used unless the admin forced Gmail SMTP.
+  if (provider !== 'smtp' && resendConfigured(settings)) {
     try {
-      const info = await sendViaResend(settings, { to: msg.to, subject: msg.subject, html: html, text: text, inlineLogo: inlineLogo });
+      const info = await sendViaResend(settings, { to: msg.to, subject: msg.subject, html: html, text: text });
       console.log('[email] sent via Resend to=%s subject=%s id=%s', msg.to, msg.subject, (info && info.id) || '');
       return { ok: true, live: true, via: 'resend', info: info };
     } catch (e) {
-      console.error('[email] Resend send failed (%s) — falling back to SMTP', e && e.message);
+      console.error('[email] Resend send failed (%s)%s', e && e.message, provider === 'resend' ? '' : ' — falling back to SMTP');
+      if (provider === 'resend') throw e; // forced Resend: surface the error, never fall back
     }
   }
 
-  // 2) Gmail SMTP fallback (or jsonTransport preview when neither is configured).
+  // Forced Resend but not configured: nothing to send — preview instead of
+  // quietly falling through to SMTP (which would defeat the isolated test).
+  if (provider === 'resend') {
+    console.log('[email] (preview — Resend selected but not configured) to=%s subject=%s', msg.to, msg.subject);
+    return { ok: true, live: false, via: 'preview', info: null };
+  }
+
+  // 2) Gmail SMTP — 'smtp' mode, or the fallback/preview path for 'auto'.
   const { tx, live } = getTransporter(settings);
   const mail = {
     from: fromHeader(settings),
@@ -460,9 +474,6 @@ async function sendRaw(settings, msg) {
     text: text,
     headers: { 'X-Auto-Response-Suppress': 'OOF, AutoReply' },
   };
-  if (inlineLogo) {
-    mail.attachments = [{ filename: inlineLogo.filename, content: Buffer.from(inlineLogo.base64, 'base64'), contentType: inlineLogo.contentType, cid: inlineLogo.cid }];
-  }
   const info = await tx.sendMail(mail);
   if (!live) console.log('[email] (preview — no live transport) to=%s subject=%s', msg.to, msg.subject);
   else console.log('[email] sent via SMTP to=%s subject=%s id=%s', msg.to, msg.subject, info.messageId);
@@ -543,7 +554,9 @@ async function sendPasswordChanged(user) {
 // sends with — so the test email body matches the real sender (not the old
 // hardcoded SMTP/Gmail wording).
 function activeTransport(s) {
-  if (resendConfigured(s)) return { via: 'Resend', from: s.resend.from };
+  const provider = s.provider || 'auto';
+  if (provider !== 'smtp' && resendConfigured(s)) return { via: 'Resend', from: s.resend.from };
+  if (provider === 'resend') return { via: 'Preview (Resend selected but not configured)', from: s.resend.from || '' };
   if (isConfigured(s)) return { via: 'Gmail SMTP', from: fromHeader(s) };
   return { via: 'Preview (no live sender configured)', from: fromHeader(s) };
 }

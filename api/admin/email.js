@@ -13,6 +13,7 @@ const { getAuthSettings, saveAuthSettings } = require('../_lib/otp');
 function publicSettings(s) {
   return {
     enabled: s.enabled !== false,
+    provider: s.provider || 'auto',
     siteUrl: s.siteUrl || '',
     resend: { from: s.resend.from, hasApiKey: !!s.resend.apiKey },
     smtp: { host: s.smtp.host, port: s.smtp.port, secure: !!s.smtp.secure, user: s.smtp.user, hasPassword: !!s.smtp.pass },
@@ -50,6 +51,7 @@ module.exports = async (req, res) => {
     const body = await readBody(req);
     const patch = {};
     if (body.enabled !== undefined) patch.enabled = !!body.enabled;
+    if (body.provider !== undefined) patch.provider = body.provider;
     if (body.siteUrl !== undefined) patch.siteUrl = body.siteUrl;
     if (body.resend) {
       patch.resend = {};

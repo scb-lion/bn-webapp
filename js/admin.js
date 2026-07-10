@@ -479,18 +479,30 @@
     var userOpts = (state.users || []).filter(function (u) { return u.email; }).map(function (u) {
       return '<option value="' + esc(u.id) + '">' + esc(u.profile.displayName || u.username) + ' — ' + esc(u.email) + '</option>';
     }).join('');
-    var statusPill = s.resendConfigured
-      ? '<span class="pill ok">Resend active</span>'
-      : (s.configured ? '<span class="pill ok">Gmail SMTP active</span>' : '<span class="pill warn">Not configured — previews only</span>');
+    var provider = s.provider || 'auto';
     var rs = s.resend || {};
+    var okPill = function (t) { return '<span class="pill ok">' + t + '</span>'; };
+    var warnPill = function (t) { return '<span class="pill warn">' + t + '</span>'; };
+    var statusPill = provider === 'smtp'
+      ? (s.configured ? okPill('Gmail SMTP active') : warnPill('Gmail SMTP — not configured'))
+      : provider === 'resend'
+        ? (s.resendConfigured ? okPill('Resend active') : warnPill('Resend — not configured'))
+        : (s.resendConfigured ? okPill('Auto — Resend active') : (s.configured ? okPill('Auto — Gmail SMTP active') : warnPill('Not configured — previews only')));
 
     el('email-card').innerHTML =
       '<div class="row-flex" style="justify-content:space-between;margin-bottom:12px;">' +
         '<h3 style="margin:0;">Email automation ' + statusPill + '</h3>' +
         '<label class="toggle-row" style="margin:0;"><input type="checkbox" id="em-enabled"' + (s.enabled ? ' checked' : '') + '> Enabled</label>' +
       '</div>' +
-      '<div class="muted" style="margin-bottom:12px;">Mail is sent through <b>Resend</b> first, and falls back to <b>Gmail SMTP</b> if Resend is empty or fails. Set a Site URL so the logo loads, and test placement at <b>mail-tester.com</b>.</div>' +
-      '<div class="field"><label for="em-siteurl">Site URL (for the logo image &amp; button links)</label>' +
+      '<div class="muted" style="margin-bottom:12px;">Pick which service actually sends below, then test placement at <b>mail-tester.com</b> or your own inbox.</div>' +
+      '<div class="section-title">Sender</div>' +
+      '<div class="muted" style="margin-bottom:8px;"><b>Auto</b> sends through Resend and falls back to Gmail SMTP. Choose one explicitly to test it on its own.</div>' +
+      '<div class="row-flex" style="gap:18px;flex-wrap:wrap;margin-bottom:14px;">' +
+        provRadio('auto', 'Auto (Resend → SMTP)', provider) +
+        provRadio('resend', 'Resend only', provider) +
+        provRadio('smtp', 'Gmail SMTP only', provider) +
+      '</div>' +
+      '<div class="field"><label for="em-siteurl">Site URL (for button links, if any)</label>' +
         '<input id="em-siteurl" type="text" value="' + esc(s.siteUrl || '') + '" placeholder="https://your-site.vercel.app"></div>' +
       '<div class="section-title">Resend API — primary sender</div>' +
       '<div class="muted" style="margin-bottom:8px;">Recommended. Verify a domain you own in Resend, then send from an address on it (e.g. <b>alerts@yourdomain.com</b>) — Resend handles SPF/DKIM/DMARC for that domain, so mail lands in the inbox.</div>' +
@@ -500,8 +512,8 @@
         '<div class="field"><label for="em-resend-from">From address (on your verified domain)</label>' +
           '<input id="em-resend-from" type="text" value="' + esc(rs.from || '') + '" placeholder="alerts@yourdomain.com"></div>' +
       '</div>' +
-      '<div class="section-title">Gmail SMTP — fallback</div>' +
-      '<div class="muted" style="margin-bottom:8px;">Used only when Resend is unset or errors. Use a Google <b>App Password</b> (Account → Security → 2-Step Verification → App passwords). Sent from the Gmail address itself so it stays SPF/DKIM aligned.</div>' +
+      '<div class="section-title">Gmail SMTP</div>' +
+      '<div class="muted" style="margin-bottom:8px;">Used when you pick <b>Gmail SMTP only</b> above, or as the <b>Auto</b> fallback when Resend errors. Use a Google <b>App Password</b> (Account → Security → 2-Step Verification → App passwords). Sent from the Gmail address itself so it stays SPF/DKIM aligned.</div>' +
       '<div class="grid2">' +
         field('em-host', 'SMTP host', 'text', s.smtp.host) +
         field('em-port', 'Port', 'number', s.smtp.port) +
@@ -545,8 +557,10 @@
   function collectEmailBody() {
     var events = {};
     Array.prototype.forEach.call(document.querySelectorAll('[data-ev]'), function (c) { events[c.getAttribute('data-ev')] = c.checked; });
+    var provEl = document.querySelector('input[name="em-provider"]:checked');
     var body = {
       enabled: el('em-enabled').checked,
+      provider: provEl ? provEl.value : 'auto',
       siteUrl: el('em-siteurl').value.trim(),
       resend: { from: el('em-resend-from').value.trim() },
       smtp: {
@@ -626,6 +640,9 @@
   function field(id, label, type, value) {
     return '<div class="field"><label for="' + id + '">' + esc(label) + '</label>' +
       '<input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(value || '') + '"></div>';
+  }
+  function provRadio(v, label, cur) {
+    return '<label class="toggle-row" style="margin:0;"><input type="radio" name="em-provider" value="' + v + '"' + (cur === v ? ' checked' : '') + '> ' + esc(label) + '</label>';
   }
   function selectField(id, label, opts, selected) {
     return '<div class="field"><label for="' + id + '">' + esc(label) + '</label><select id="' + id + '">' +
