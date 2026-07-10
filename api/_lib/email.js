@@ -110,9 +110,6 @@ function esc(v) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
   });
 }
-function money(cents) {
-  return '$' + ((Number(cents) || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 // The From address is ALWAYS the authenticated SMTP (Gmail) account. Sending as
 // the account we actually authenticate with keeps SPF, DKIM and DMARC aligned —
 // the single biggest factor in landing in the inbox instead of spam. A custom
@@ -250,17 +247,16 @@ function buildTransferSubmitted(user, d) {
   const label = kindLabel(d.kind, d.meta);
   const rows = [
     { label: 'Type', value: label },
-    { label: 'Total', value: money(d.amountCents) },
-    { label: 'Status', value: 'Pending review' },
+    { label: 'Status', value: 'Pending' },
   ];
-  if (d.counterparty) rows.splice(2, 0, { label: d.direction === 'in' ? 'From' : 'To', value: d.counterparty });
+  if (d.counterparty) rows.splice(1, 0, { label: d.direction === 'in' ? 'From' : 'To', value: d.counterparty });
   if (d.transferId) rows.push({ label: 'Reference', value: d.transferId });
   return {
-    subject: 'Your ' + label + ' is being reviewed',
+    subject: 'We received your request',
     content: {
-      preheader: 'We’ve received your ' + label + ' of ' + money(d.amountCents) + '.',
-      heading: 'Transfer received',
-      intro: greeting(user) + '<br>We’ve received your <b>' + esc(label) + '</b> and it’s now being reviewed. We’ll send you an update once it’s processed.',
+      preheader: 'We’ve received your request.',
+      heading: 'Request received',
+      intro: greeting(user) + '<br>We’ve received your request and it’s now in progress. We’ll send you an update once it’s ready.',
       rows: rows,
       footerNote: 'If you didn’t make this request, let us know.',
     },
@@ -272,16 +268,15 @@ function buildTransferApproved(user, d) {
   const incoming = d.direction === 'in' || d.kind === 'deposit';
   const rows = [
     { label: 'Type', value: label },
-    { label: 'Total', value: money(d.amountCents) },
     { label: 'Status', value: 'Completed' },
   ];
   if (d.transferId) rows.push({ label: 'Reference', value: d.transferId });
   return {
-    subject: 'Your ' + label + ' is complete',
+    subject: 'Your request is complete',
     content: {
-      preheader: 'Your ' + label + ' of ' + money(d.amountCents) + ' is complete.',
-      heading: 'Transfer complete',
-      intro: greeting(user) + '<br>Your <b>' + esc(label) + '</b> has been processed. It has ' + (incoming ? 'been added to' : 'been sent from') + ' your account.',
+      preheader: 'Your request is complete.',
+      heading: 'Request complete',
+      intro: greeting(user) + '<br>Your request is now complete. It has ' + (incoming ? 'been added to' : 'been sent from') + ' your account.',
       rows: rows,
     },
   };
@@ -291,16 +286,15 @@ function buildTransferRejected(user, d) {
   const label = kindLabel(d.kind, d.meta);
   const rows = [
     { label: 'Type', value: label },
-    { label: 'Total', value: money(d.amountCents) },
-    { label: 'Status', value: 'Declined' },
+    { label: 'Status', value: 'Not completed' },
   ];
   if (d.transferId) rows.push({ label: 'Reference', value: d.transferId });
   return {
-    subject: 'Your ' + label + ' was not completed',
+    subject: 'Your request could not be completed',
     content: {
-      preheader: 'Your ' + label + ' of ' + money(d.amountCents) + ' was not completed.',
-      heading: 'Transfer not completed',
-      intro: greeting(user) + '<br>Your <b>' + esc(label) + '</b> was not completed, so your balance is unchanged. If you have any questions, we’re here to help.',
+      preheader: 'Your request could not be completed.',
+      heading: 'Request not completed',
+      intro: greeting(user) + '<br>Your request could not be completed, so nothing was changed on your account. If you have any questions, we’re here to help.',
       rows: rows,
     },
   };
@@ -309,24 +303,21 @@ function buildTransferRejected(user, d) {
 // A transaction the admin posted directly to the account (incoming or outgoing).
 function buildTransactionPosted(user, d) {
   const incoming = (Number(d.amountCents) || 0) >= 0;
-  const mag = Math.abs(Number(d.amountCents) || 0);
   const rows = [
     { label: 'Type', value: incoming ? 'Incoming' : 'Outgoing' },
-    { label: 'Total', value: money(mag) },
   ];
   if (d.description) rows.push({ label: 'Description', value: d.description });
   if (d.counterparty) rows.push({ label: incoming ? 'From' : 'To', value: d.counterparty });
   if (d.accountName) rows.push({ label: 'Account', value: d.accountName });
   if (d.date) rows.push({ label: 'Date', value: new Date(d.date).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) });
-  if (d.balanceAfter != null) rows.push({ label: 'New balance', value: money(d.balanceAfter) });
   return {
-    subject: 'Account activity',
+    subject: 'A recent update to your account',
     content: {
-      preheader: 'There’s a new entry on your account.',
-      heading: 'Account activity',
-      intro: greeting(user) + '<br>There’s a new entry on your account. Here are the details:',
+      preheader: 'There’s a new update on your account.',
+      heading: 'Account update',
+      intro: greeting(user) + '<br>There’s a new update on your account. Here are the details:',
       rows: rows,
-      footerNote: 'If you don’t recognize this transaction, let us know.',
+      footerNote: 'If this doesn’t look right, let us know.',
     },
   };
 }
