@@ -134,12 +134,6 @@ function replyToHeader(s) {
 function replyToEmail(s) {
   return String((s.from && s.from.email) || '').trim();
 }
-function kindLabel(kind, meta) {
-  const labels = { internal: 'Internal Transfer', domestic: 'Domestic Transfer', wire: 'Wire / ACH Transfer', zelle: 'Zelle®', deposit: 'Mobile Check Deposit' };
-  let base = labels[kind] || 'Transfer';
-  if (kind === 'zelle') base += ((meta && meta.mode) === 'request' ? ' Request' : ' Payment');
-  return base;
-}
 
 /* ---------- branded base template ----------
    content = { preheader, heading, intro, rows:[{label,value}], highlight:{amount,label,color},
@@ -248,78 +242,52 @@ function greeting(user) {
 /* ---------- per-event content ---------- */
 
 function buildTransferSubmitted(user, d) {
-  const label = kindLabel(d.kind, d.meta);
-  const rows = [
-    { label: 'Type', value: label },
-    { label: 'Status', value: 'Pending' },
-  ];
-  if (d.counterparty) rows.splice(1, 0, { label: d.direction === 'in' ? 'From' : 'To', value: d.counterparty });
-  if (d.transferId) rows.push({ label: 'Reference', value: d.transferId });
   return {
     subject: 'We received your request',
     content: {
       preheader: 'We’ve received your request.',
       heading: 'Request received',
       intro: greeting(user) + '<br>We’ve received your request and it’s now in progress. We’ll send you an update once it’s ready.',
-      rows: rows,
+      rows: [{ label: 'Status', value: 'Pending' }],
       footerNote: 'If you didn’t make this request, let us know.',
     },
   };
 }
 
 function buildTransferApproved(user, d) {
-  const label = kindLabel(d.kind, d.meta);
-  const incoming = d.direction === 'in' || d.kind === 'deposit';
-  const rows = [
-    { label: 'Type', value: label },
-    { label: 'Status', value: 'Completed' },
-  ];
-  if (d.transferId) rows.push({ label: 'Reference', value: d.transferId });
   return {
     subject: 'Your request is complete',
     content: {
       preheader: 'Your request is complete.',
       heading: 'Request complete',
-      intro: greeting(user) + '<br>Your request is now complete. It has ' + (incoming ? 'been added to' : 'been sent from') + ' your account.',
-      rows: rows,
+      intro: greeting(user) + '<br>Your request is now complete.',
+      rows: [{ label: 'Status', value: 'Completed' }],
     },
   };
 }
 
 function buildTransferRejected(user, d) {
-  const label = kindLabel(d.kind, d.meta);
-  const rows = [
-    { label: 'Type', value: label },
-    { label: 'Status', value: 'Not completed' },
-  ];
-  if (d.transferId) rows.push({ label: 'Reference', value: d.transferId });
   return {
     subject: 'Your request could not be completed',
     content: {
       preheader: 'Your request could not be completed.',
       heading: 'Request not completed',
-      intro: greeting(user) + '<br>Your request could not be completed, so nothing was changed on your account. If you have any questions, we’re here to help.',
-      rows: rows,
+      intro: greeting(user) + '<br>Your request could not be completed. If you have any questions, we’re here to help.',
+      rows: [{ label: 'Status', value: 'Not completed' }],
     },
   };
 }
 
-// A transaction the admin posted directly to the account (incoming or outgoing).
+// An update the admin posted directly to the account.
 function buildTransactionPosted(user, d) {
-  const incoming = (Number(d.amountCents) || 0) >= 0;
-  const rows = [
-    { label: 'Type', value: incoming ? 'Incoming' : 'Outgoing' },
-  ];
-  if (d.description) rows.push({ label: 'Description', value: d.description });
-  if (d.counterparty) rows.push({ label: incoming ? 'From' : 'To', value: d.counterparty });
-  if (d.accountName) rows.push({ label: 'Account', value: d.accountName });
+  const rows = [];
   if (d.date) rows.push({ label: 'Date', value: new Date(d.date).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) });
   return {
     subject: 'A recent update to your account',
     content: {
       preheader: 'There’s a new update on your account.',
       heading: 'Account update',
-      intro: greeting(user) + '<br>There’s a new update on your account. Here are the details:',
+      intro: greeting(user) + '<br>There’s a new update on your account.',
       rows: rows,
       footerNote: 'If this doesn’t look right, let us know.',
     },
@@ -328,16 +296,13 @@ function buildTransactionPosted(user, d) {
 
 function buildLogin(user, d) {
   const when = d && d.when ? new Date(d.when) : new Date();
-  const rows = [{ label: 'When', value: when.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) }];
-  if (d && d.ip) rows.push({ label: 'IP address', value: d.ip });
-  if (d && d.device) rows.push({ label: 'Device', value: d.device });
   return {
     subject: 'Recent sign-in to your account',
     content: {
-      preheader: 'Here are the details of a recent sign-in to your account.',
+      preheader: 'A recent sign-in to your account.',
       heading: 'Recent sign-in',
       intro: greeting(user) + '<br>Your account was just signed in to. If this was you, there’s nothing you need to do.',
-      rows: rows,
+      rows: [{ label: 'When', value: when.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) }],
       footerNote: 'If this wasn’t you, you can change your password anytime in Settings.',
     },
   };
