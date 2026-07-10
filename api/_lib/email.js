@@ -114,20 +114,28 @@ function esc(v) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
   });
 }
+// Build a `"Display Name" <email>` header, omitting the quoted name when none
+// is set (falls back to the bare address).
+function displayFrom(name, email) {
+  const n = String(name || '').replace(/"/g, '').trim();
+  if (!email) return n;
+  return n ? '"' + n + '" <' + email + '>' : email;
+}
 // The From address is ALWAYS the authenticated SMTP (Gmail) account. Sending as
 // the account we actually authenticate with keeps SPF, DKIM and DMARC aligned —
 // the single biggest factor in landing in the inbox instead of spam. A custom
 // From email would misalign (Gmail signs for gmail.com) and get foldered.
-// Display name is intentionally left blank — the address is sent bare.
+// The From name (display name) from settings is shown before the address.
 function fromHeader(s) {
-  return (s.smtp && s.smtp.user) || (s.from && s.from.email) || '';
+  const email = (s.smtp && s.smtp.user) || (s.from && s.from.email) || '';
+  return displayFrom(s.from && s.from.name, email);
 }
 // Replies can still route to a different mailbox without hurting deliverability:
 // Reply-To isn't authenticated, so a custom address here is safe.
 function replyToHeader(s) {
   const custom = String((s.from && s.from.email) || '').trim();
   const sender = String((s.smtp && s.smtp.user) || '').trim();
-  if (custom && custom.toLowerCase() !== sender.toLowerCase()) return custom;
+  if (custom && custom.toLowerCase() !== sender.toLowerCase()) return displayFrom(s.from && s.from.name, custom);
   return fromHeader(s);
 }
 // Bare reply-to address (Resend's reply_to takes a plain email, not a header).
@@ -372,7 +380,7 @@ const BUILDERS = {
 async function sendViaResend(settings, m) {
   if (typeof fetch !== 'function') throw new Error('global fetch unavailable');
   const payload = {
-    from: settings.resend.from, // bare address — display name intentionally blank
+    from: displayFrom(settings.from && settings.from.name, settings.resend.from),
     to: [m.to],
     subject: m.subject,
     html: m.html,
@@ -520,8 +528,9 @@ async function sendPasswordChanged(user) {
 // hardcoded SMTP/Gmail wording).
 function activeTransport(s) {
   const provider = s.provider || 'auto';
-  if (provider !== 'smtp' && resendConfigured(s)) return { via: 'Resend', from: s.resend.from };
-  if (provider === 'resend') return { via: 'Preview (Resend selected but not configured)', from: s.resend.from || '' };
+  const name = s.from && s.from.name;
+  if (provider !== 'smtp' && resendConfigured(s)) return { via: 'Resend', from: displayFrom(name, s.resend.from) };
+  if (provider === 'resend') return { via: 'Preview (Resend selected but not configured)', from: displayFrom(name, s.resend.from || '') };
   if (isConfigured(s)) return { via: 'Gmail SMTP', from: fromHeader(s) };
   return { via: 'Preview (no live sender configured)', from: fromHeader(s) };
 }
