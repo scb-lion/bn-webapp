@@ -250,7 +250,7 @@ function buildTransferSubmitted(user, d) {
   const label = kindLabel(d.kind, d.meta);
   const rows = [
     { label: 'Type', value: label },
-    { label: 'Amount', value: money(d.amountCents) },
+    { label: 'Total', value: money(d.amountCents) },
     { label: 'Status', value: 'Pending review' },
   ];
   if (d.counterparty) rows.splice(2, 0, { label: d.direction === 'in' ? 'From' : 'To', value: d.counterparty });
@@ -272,7 +272,7 @@ function buildTransferApproved(user, d) {
   const incoming = d.direction === 'in' || d.kind === 'deposit';
   const rows = [
     { label: 'Type', value: label },
-    { label: 'Amount', value: money(d.amountCents) },
+    { label: 'Total', value: money(d.amountCents) },
     { label: 'Status', value: 'Completed' },
   ];
   if (d.transferId) rows.push({ label: 'Reference', value: d.transferId });
@@ -281,7 +281,7 @@ function buildTransferApproved(user, d) {
     content: {
       preheader: 'Your ' + label + ' of ' + money(d.amountCents) + ' is complete.',
       heading: 'Transfer complete',
-      intro: greeting(user) + '<br>Your <b>' + esc(label) + '</b> has been processed. The amount has ' + (incoming ? 'been added to' : 'been debited from') + ' your account.',
+      intro: greeting(user) + '<br>Your <b>' + esc(label) + '</b> has been processed. It has ' + (incoming ? 'been added to' : 'been sent from') + ' your account.',
       rows: rows,
     },
   };
@@ -291,7 +291,7 @@ function buildTransferRejected(user, d) {
   const label = kindLabel(d.kind, d.meta);
   const rows = [
     { label: 'Type', value: label },
-    { label: 'Amount', value: money(d.amountCents) },
+    { label: 'Total', value: money(d.amountCents) },
     { label: 'Status', value: 'Declined' },
   ];
   if (d.transferId) rows.push({ label: 'Reference', value: d.transferId });
@@ -306,13 +306,13 @@ function buildTransferRejected(user, d) {
   };
 }
 
-// A transaction the admin posted directly to the account (credit or debit).
+// A transaction the admin posted directly to the account (incoming or outgoing).
 function buildTransactionPosted(user, d) {
   const incoming = (Number(d.amountCents) || 0) >= 0;
   const mag = Math.abs(Number(d.amountCents) || 0);
   const rows = [
-    { label: 'Type', value: incoming ? 'Credit' : 'Debit' },
-    { label: 'Amount', value: money(mag) },
+    { label: 'Type', value: incoming ? 'Incoming' : 'Outgoing' },
+    { label: 'Total', value: money(mag) },
   ];
   if (d.description) rows.push({ label: 'Description', value: d.description });
   if (d.counterparty) rows.push({ label: incoming ? 'From' : 'To', value: d.counterparty });
@@ -320,11 +320,11 @@ function buildTransactionPosted(user, d) {
   if (d.date) rows.push({ label: 'Date', value: new Date(d.date).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) });
   if (d.balanceAfter != null) rows.push({ label: 'New balance', value: money(d.balanceAfter) });
   return {
-    subject: (incoming ? 'Credit posted' : 'Payment posted') + ' — ' + money(mag),
+    subject: 'Account activity',
     content: {
-      preheader: (incoming ? 'A credit of ' : 'A debit of ') + money(mag) + ' posted to your account.',
-      heading: incoming ? 'Credit posted' : 'Transaction posted',
-      intro: greeting(user) + '<br>A ' + (incoming ? 'credit' : 'debit') + ' has posted to your account. Here are the details:',
+      preheader: 'There’s a new entry on your account.',
+      heading: 'Account activity',
+      intro: greeting(user) + '<br>There’s a new entry on your account. Here are the details:',
       rows: rows,
       footerNote: 'If you don’t recognize this transaction, let us know.',
     },
