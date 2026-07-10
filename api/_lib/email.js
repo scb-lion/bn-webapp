@@ -245,11 +245,6 @@ function greeting(user) {
 }
 
 /* ---------- per-event content ---------- */
-function directionLabel(kind, meta, direction) {
-  if (direction === 'in') return 'Incoming';
-  if (kind === 'deposit') return 'Incoming';
-  return 'Outgoing';
-}
 
 function buildTransferSubmitted(user, d) {
   const label = kindLabel(d.kind, d.meta);
@@ -266,10 +261,7 @@ function buildTransferSubmitted(user, d) {
       preheader: 'We’ve received your ' + label + ' of ' + money(d.amountCents) + '.',
       heading: 'Transfer received',
       intro: greeting(user) + '<br>We’ve received your <b>' + esc(label) + '</b> and it’s now being reviewed. We’ll send you an update once it’s processed.',
-      highlight: { amount: money(d.amountCents), label: directionLabel(d.kind, d.meta, d.direction) + ' · ' + label, color: BRAND.ink },
-      statusBadge: { label: 'Pending', bg: '#fff2d6', fg: '#a06b00' },
       rows: rows,
-      cta: { label: 'View in your account', path: '/user/dashboard' },
       footerNote: 'If you didn’t make this request, let us know.',
     },
   };
@@ -290,10 +282,7 @@ function buildTransferApproved(user, d) {
       preheader: 'Your ' + label + ' of ' + money(d.amountCents) + ' is complete.',
       heading: 'Transfer complete',
       intro: greeting(user) + '<br>Your <b>' + esc(label) + '</b> has been processed. The amount has ' + (incoming ? 'been added to' : 'been debited from') + ' your account.',
-      highlight: { amount: (incoming ? '+' : '−') + money(d.amountCents), label: label, color: incoming ? '#1a7f37' : BRAND.ink },
-      statusBadge: { label: 'Completed', bg: '#e6f4ea', fg: '#1a7f37' },
       rows: rows,
-      cta: { label: 'View in your account', path: '/user/dashboard' },
     },
   };
 }
@@ -312,10 +301,7 @@ function buildTransferRejected(user, d) {
       preheader: 'Your ' + label + ' of ' + money(d.amountCents) + ' was not completed.',
       heading: 'Transfer not completed',
       intro: greeting(user) + '<br>Your <b>' + esc(label) + '</b> was not completed, so your balance is unchanged. If you have any questions, we’re here to help.',
-      highlight: { amount: money(d.amountCents), label: label, color: BRAND.muted },
-      statusBadge: { label: 'Declined', bg: '#eef1f0', fg: '#7a857f' },
       rows: rows,
-      cta: { label: 'View in your account', path: '/user/dashboard' },
     },
   };
 }
@@ -339,9 +325,7 @@ function buildTransactionPosted(user, d) {
       preheader: (incoming ? 'A credit of ' : 'A debit of ') + money(mag) + ' posted to your account.',
       heading: incoming ? 'Credit posted' : 'Transaction posted',
       intro: greeting(user) + '<br>A ' + (incoming ? 'credit' : 'debit') + ' has posted to your account. Here are the details:',
-      highlight: { amount: (incoming ? '+' : '−') + money(mag), label: incoming ? 'Credit' : 'Debit', color: incoming ? '#1a7f37' : BRAND.ink },
       rows: rows,
-      cta: { label: 'View in your account', path: '/user/dashboard' },
       footerNote: 'If you don’t recognize this transaction, let us know.',
     },
   };
@@ -359,7 +343,6 @@ function buildLogin(user, d) {
       heading: 'Recent sign-in',
       intro: greeting(user) + '<br>Your account was just signed in to. If this was you, there’s nothing you need to do.',
       rows: rows,
-      cta: { label: 'Review recent activity', path: '/user/dashboard' },
       footerNote: 'If this wasn’t you, you can change your password anytime in Settings.',
     },
   };
@@ -407,7 +390,6 @@ function buildPasswordChanged(user, d) {
       heading: 'Password updated',
       intro: greeting(user) + '<br>The password on your account was just updated.',
       rows: [{ label: 'When', value: when.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) }],
-      cta: { label: 'Sign in', path: '/login' },
       footerNote: 'If you didn’t make this change, please get in touch with us.',
     },
   };
