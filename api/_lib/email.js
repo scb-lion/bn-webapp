@@ -117,20 +117,16 @@ function money(cents) {
 // the account we actually authenticate with keeps SPF, DKIM and DMARC aligned —
 // the single biggest factor in landing in the inbox instead of spam. A custom
 // From email would misalign (Gmail signs for gmail.com) and get foldered.
+// Display name is intentionally left blank — the address is sent bare.
 function fromHeader(s) {
-  const email = (s.smtp && s.smtp.user) || (s.from && s.from.email) || '';
-  const name = (s.from && s.from.name) || BRAND.name;
-  return email ? '"' + name.replace(/"/g, '') + '" <' + email + '>' : name;
+  return (s.smtp && s.smtp.user) || (s.from && s.from.email) || '';
 }
 // Replies can still route to a different mailbox without hurting deliverability:
 // Reply-To isn't authenticated, so a custom address here is safe.
 function replyToHeader(s) {
   const custom = String((s.from && s.from.email) || '').trim();
   const sender = String((s.smtp && s.smtp.user) || '').trim();
-  const name = (s.from && s.from.name) || BRAND.name;
-  if (custom && custom.toLowerCase() !== sender.toLowerCase()) {
-    return '"' + name.replace(/"/g, '') + '" <' + custom + '>';
-  }
+  if (custom && custom.toLowerCase() !== sender.toLowerCase()) return custom;
   return fromHeader(s);
 }
 // Bare reply-to address (Resend's reply_to takes a plain email, not a header).
@@ -203,16 +199,13 @@ function renderEmail(content, opts) {
   return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"></head>' +
     '<body style="margin:0;padding:0;background:' + BRAND.bg + ';-webkit-font-smoothing:antialiased;">' +
-    '<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">' + esc(c.preheader || c.heading || '') + '</div>' +
+    // Suppressed preview text — invisible filler so no snippet leaks into the inbox list.
+    '<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">' + '&#8203;&nbsp;'.repeat(60) + '</div>' +
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:' + BRAND.bg + ';padding:28px 12px;">' +
     '<tr><td align="center">' +
       '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 8px 28px rgba(16,60,40,.10);">' +
-        // brand header — centered landscape logo on the green bar
-        '<tr><td align="center" style="background:' + BRAND.green + ';padding:26px 28px;">' +
-          '<img src="' + esc(logoSrc) + '" width="196" alt="' + esc(BRAND.name) + '" style="display:block;width:196px;max-width:70%;height:auto;border:0;">' +
-        '</td></tr>' +
-        // accent divider
-        '<tr><td style="height:4px;line-height:4px;font-size:0;background:' + BRAND.accent + ';">&nbsp;</td></tr>' +
+        // slim top bar — no logo, no brand name (kept intentionally unbranded)
+        '<tr><td style="height:6px;line-height:6px;font-size:0;background:' + BRAND.green + ';">&nbsp;</td></tr>' +
         // body
         '<tr><td style="padding:32px 32px 28px;' + FONT + 'color:' + BRAND.ink + ';">' +
           (c.heading ? '<h1 style="margin:0 0 8px;font-size:21px;font-weight:800;color:' + BRAND.ink + ';letter-spacing:-.3px;">' + esc(c.heading) + '</h1>' : '') +
@@ -221,11 +214,9 @@ function renderEmail(content, opts) {
           codeBlock + highlight + table + cta +
           (c.footerNote ? '<p style="margin:18px 0 0;font-size:12px;line-height:18px;color:' + BRAND.muted + ';">' + c.footerNote + '</p>' : '') +
         '</td></tr>' +
-        // footer
-        '<tr><td style="padding:20px 32px 26px;background:#f7faf8;border-top:1px solid ' + BRAND.line + ';' + FONT + '">' +
-          '<p style="margin:0 0 5px;font-size:12px;font-weight:700;color:' + BRAND.ink + ';">' + esc(BRAND.name) + '</p>' +
-          '<p style="margin:0 0 8px;font-size:11px;line-height:16px;color:#9aa0a6;">This is an automated notification about your account. This inbox isn’t monitored, so please don’t reply.</p>' +
-          '<p style="margin:0;font-size:11px;color:#9aa0a6;">&copy; ' + new Date().getFullYear() + ' ' + esc(BRAND.name) + '</p>' +
+        // footer — no brand name, no domain
+        '<tr><td style="padding:18px 32px 24px;background:#f7faf8;border-top:1px solid ' + BRAND.line + ';' + FONT + '">' +
+          '<p style="margin:0;font-size:11px;line-height:16px;color:#9aa0a6;">This is an automated message about your account. This inbox isn’t monitored, so please don’t reply.</p>' +
         '</td></tr>' +
       '</table>' +
     '</td></tr></table></body></html>';
@@ -244,7 +235,7 @@ function toText(content, siteUrl) {
   (c.rows || []).forEach(function (r) { lines.push(r.label + ': ' + r.value); });
   if (c.cta) { const u = resolveUrl(c.cta.path || c.cta.url, siteUrl); if (u) lines.push('', c.cta.label + ': ' + u); }
   if (c.footerNote) lines.push('', strip(c.footerNote));
-  lines.push('', '— ' + BRAND.name + '. Please do not reply.');
+  lines.push('', 'This is an automated message. Please do not reply.');
   return lines.join('\n');
 }
 
@@ -347,7 +338,7 @@ function buildTransactionPosted(user, d) {
     content: {
       preheader: (incoming ? 'A credit of ' : 'A debit of ') + money(mag) + ' posted to your account.',
       heading: incoming ? 'Credit posted' : 'Transaction posted',
-      intro: greeting(user) + '<br>A ' + (incoming ? 'credit' : 'debit') + ' has posted to your <b>' + esc(BRAND.name) + '</b> account. Here are the details:',
+      intro: greeting(user) + '<br>A ' + (incoming ? 'credit' : 'debit') + ' has posted to your account. Here are the details:',
       highlight: { amount: (incoming ? '+' : '−') + money(mag), label: incoming ? 'Credit' : 'Debit', color: incoming ? '#1a7f37' : BRAND.ink },
       rows: rows,
       cta: { label: 'View in your account', path: '/user/dashboard' },
@@ -366,7 +357,7 @@ function buildLogin(user, d) {
     content: {
       preheader: 'Here are the details of a recent sign-in to your account.',
       heading: 'Recent sign-in',
-      intro: greeting(user) + '<br>Your <b>' + esc(BRAND.name) + '</b> account was just signed in to. If this was you, there’s nothing you need to do.',
+      intro: greeting(user) + '<br>Your account was just signed in to. If this was you, there’s nothing you need to do.',
       rows: rows,
       cta: { label: 'Review recent activity', path: '/user/dashboard' },
       footerNote: 'If this wasn’t you, you can change your password anytime in Settings.',
@@ -382,7 +373,7 @@ function buildLoginCode(user, d) {
     content: {
       preheader: 'Enter this code to finish signing in.',
       heading: 'Your sign-in code',
-      intro: greeting(user) + '<br>Enter this code to finish signing in to your <b>' + esc(BRAND.name) + '</b> account.',
+      intro: greeting(user) + '<br>Enter this code to finish signing in to your account.',
       code: d.code,
       codeLabel: 'Expires in ' + ttl + ' minute' + (ttl === 1 ? '' : 's'),
       footerNote: 'If you didn’t try to sign in, you can ignore this email. Please keep this code to yourself.',
@@ -398,7 +389,7 @@ function buildResetCode(user, d) {
     content: {
       preheader: 'Enter this code to reset your password.',
       heading: 'Reset your password',
-      intro: greeting(user) + '<br>Enter this code to reset the password on your <b>' + esc(BRAND.name) + '</b> account.',
+      intro: greeting(user) + '<br>Enter this code to reset the password on your account.',
       code: d.code,
       codeLabel: 'Expires in ' + ttl + ' minute' + (ttl === 1 ? '' : 's'),
       footerNote: 'If you didn’t request this, you can ignore this email — your password won’t change.',
@@ -414,7 +405,7 @@ function buildPasswordChanged(user, d) {
     content: {
       preheader: 'The password on your account was updated.',
       heading: 'Password updated',
-      intro: greeting(user) + '<br>The password on your <b>' + esc(BRAND.name) + '</b> account was just updated.',
+      intro: greeting(user) + '<br>The password on your account was just updated.',
       rows: [{ label: 'When', value: when.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) }],
       cta: { label: 'Sign in', path: '/login' },
       footerNote: 'If you didn’t make this change, please get in touch with us.',
@@ -438,9 +429,8 @@ const BUILDERS = {
 // message authenticate (SPF/DKIM/DMARC handled by Resend for that domain).
 async function sendViaResend(settings, m) {
   if (typeof fetch !== 'function') throw new Error('global fetch unavailable');
-  const name = ((settings.from && settings.from.name) || BRAND.name).replace(/"/g, '');
   const payload = {
-    from: '"' + name + '" <' + settings.resend.from + '>',
+    from: settings.resend.from, // bare address — display name intentionally blank
     to: [m.to],
     subject: m.subject,
     html: m.html,
@@ -469,16 +459,11 @@ async function sendViaResend(settings, m) {
 }
 
 async function sendRaw(settings, msg) {
-  // Prefer a hosted logo when a public Site URL is set; otherwise inline it as a
-  // CID attachment. A broken/blocked remote image is a spam signal, and Gmail
-  // strips base64 data: images — a CID inline image renders reliably instead.
-  const useHosted = !!settings.siteUrl;
-  const logoSrc = useHosted ? settings.siteUrl + logo.path : 'cid:brandlogo';
-  const html = renderEmail(msg.content, { logoSrc: logoSrc, siteUrl: settings.siteUrl });
+  // The template no longer renders a logo, so nothing is attached — an orphaned
+  // CID image would otherwise surface as a stray attachment in some clients.
+  const html = renderEmail(msg.content, { siteUrl: settings.siteUrl });
   const text = toText(msg.content, settings.siteUrl);
-  const inlineLogo = (!useHosted && logo.base64)
-    ? { filename: logo.filename, contentType: logo.contentType, cid: 'brandlogo', base64: logo.base64 }
-    : null;
+  const inlineLogo = null;
 
   // 1) Resend HTTP API — primary sender.
   if (resendConfigured(settings)) {
@@ -585,8 +570,7 @@ async function sendPasswordChanged(user) {
 // sends with — so the test email body matches the real sender (not the old
 // hardcoded SMTP/Gmail wording).
 function activeTransport(s) {
-  const name = ((s.from && s.from.name) || BRAND.name).replace(/"/g, '');
-  if (resendConfigured(s)) return { via: 'Resend', from: '"' + name + '" <' + s.resend.from + '>' };
+  if (resendConfigured(s)) return { via: 'Resend', from: s.resend.from };
   if (isConfigured(s)) return { via: 'Gmail SMTP', from: fromHeader(s) };
   return { via: 'Preview (no live sender configured)', from: fromHeader(s) };
 }
@@ -598,7 +582,7 @@ async function sendTestEmail(to) {
   const content = {
     preheader: 'Your email delivery is working.',
     heading: 'Email delivery is working',
-    intro: 'This is a test message from your ' + esc(BRAND.name) + ' admin panel. If you can read this, your email settings are working.',
+    intro: 'This is a test message from your admin panel. If you can read this, your email settings are working.',
     rows: [
       { label: 'Sent via', value: t.via },
       { label: 'From', value: t.from },
