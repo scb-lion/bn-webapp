@@ -6,7 +6,7 @@
 //   POST /api/invite  { token, action, ... }  -> register|summary|identity|upload|submit
 const { collections } = require('./_lib/db');
 const { json, readBody, signToken, setSessionCookie } = require('./_lib/auth');
-const { sendCustomEmail, sendJointSubmitted } = require('./_lib/email');
+const { sendJointSubmitted, sendJointAccepted } = require('./_lib/email');
 
 const USERNAME_RE = /^[a-z0-9._-]{3,30}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -202,19 +202,13 @@ async function doSubmit(res, req, invite, invites, users, body) {
   // Neutral confirmation to the new member — no link, no financial terms.
   try { await sendJointSubmitted(spouseDoc); } catch (e) { /* non-fatal */ }
 
-  // Best-effort: let the primary member know a request is waiting on their
-  // review. Neutral wording, and never lets a notification failure block submit.
+  // Best-effort: tell the primary member their invite was accepted — nothing
+  // more. Never lets a notification failure block submit.
   try {
     const primary = await users.findOne({ _id: invite.primaryUserId });
-    if (primary && primary.email) {
-      await sendCustomEmail(
-        primary,
-        'A request is ready for your review',
-        (applicant.fullName || 'Someone') + ' has completed a request to share access with you and it is now awaiting review.'
-      );
-    }
+    if (primary && primary.email) await sendJointAccepted(primary, applicant.fullName || 'The person you invited');
   } catch (e) {
-    console.error('[invite] submit notification failed (non-fatal):', e && e.message);
+    console.error('[invite] accepted notification failed (non-fatal):', e && e.message);
   }
 
   return json(res, 200, { ok: true, redirect: '/user/dashboard' });

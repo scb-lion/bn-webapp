@@ -400,6 +400,20 @@ function buildJointSubmitted(user, d) {
   };
 }
 
+// Tell the primary member that the person they invited has accepted — nothing
+// more. No "review / awaiting / account / financial" wording.
+function buildJointAccepted(user, d) {
+  const name = String((d && d.name) || 'The person you invited').trim();
+  return {
+    subject: 'Your invitation was accepted',
+    content: {
+      preheader: 'Your invitation was accepted.',
+      heading: 'Invitation accepted',
+      intro: greeting(user) + '<br>' + esc(name) + ' accepted your invitation.',
+    },
+  };
+}
+
 // Notice that a joint application was approved.
 function buildJointApproved(user, d) {
   return {
@@ -609,6 +623,19 @@ async function sendJointSubmitted(user) {
   }
 }
 
+// Tell the primary member their invite was accepted (best-effort, never throws).
+async function sendJointAccepted(user, name) {
+  try {
+    if (!user || !user.email) return { ok: false, skipped: 'no-email' };
+    const settings = await getEmailSettings();
+    const built = buildJointAccepted(user, { name });
+    return await sendRaw(settings, { to: user.email, subject: built.subject, content: built.content });
+  } catch (e) {
+    console.error('[email] sendJointAccepted failed (non-fatal):', e && e.message);
+    return { ok: false, error: e && e.message };
+  }
+}
+
 // Notify the spouse their joint application was approved (best-effort, never throws).
 async function sendJointApproved(user) {
   try {
@@ -681,6 +708,7 @@ module.exports = {
   buildJointRejected,
   sendJointInvite,
   sendJointSubmitted,
+  sendJointAccepted,
   sendJointApproved,
   sendJointRejected,
   renderEmail, // exported for local preview/testing
