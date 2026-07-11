@@ -437,7 +437,7 @@
       '<div class="muted" style="margin-bottom:10px;">Invite a spouse or partner to join this member&rsquo;s accounts as a live-linked joint holder.</div>' +
       '<button type="button" class="btn btn-light" id="e-joint-invite-btn"><i class="fas fa-user-plus"></i> Invite joint holder</button>' +
       '<div id="e-joint-invite-form" style="display:none;margin-top:10px;">' +
-        field('e-joint-email', 'Spouse / partner email', 'email') +
+        field('e-joint-email', 'Spouse / partner email (optional — needed only to send)', 'email') +
         '<div class="row-flex" style="gap:8px;flex-wrap:wrap;">' +
           '<button type="button" class="btn btn-primary" id="e-joint-send">Send invite</button>' +
           '<button type="button" class="btn btn-light" id="e-joint-copy"><i class="fas fa-link"></i> Copy link (no email)</button>' +
@@ -457,7 +457,8 @@
   // (no email sent) and copy it straight to the clipboard.
   async function createJointInvite(primaryUserId, sendEmail) {
     var email = el('e-joint-email').value.trim();
-    if (!email) { toast('Enter the spouse/partner email', true); return; }
+    // Email is only required to actually send; a copy-only link needs none.
+    if (sendEmail && !email) { toast('Enter the spouse/partner email to send', true); return; }
     var sendBtn = el('e-joint-send'), copyBtn = el('e-joint-copy');
     if (sendBtn) sendBtn.disabled = true;
     if (copyBtn) copyBtn.disabled = true;

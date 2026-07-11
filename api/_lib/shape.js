@@ -26,6 +26,9 @@ function publicUser(user) {
       otpLogin: (user.security && user.security.otpLogin) || 'default', // 'default' | 'on' | 'off'
     },
     createdAt: user.createdAt || null,
+    // True for accounts created without a password (joint-invite members): the
+    // dashboard prompts them to set one after their first (auto) sign-in.
+    needsPassword: !!(user.passwordless || !user.passwordHash),
     joint: user.jointOf
       ? { status: user.jointStatus || 'pending', primaryName: '' } // primaryName filled by me.js
       : null,

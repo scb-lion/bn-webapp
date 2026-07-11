@@ -35,6 +35,10 @@
     });
   }
   function q(sel, root) { return (root || document).querySelector(sel); }
+  function money(cents) {
+    var n = (Number(cents) || 0) / 100;
+    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
   function api(url, opts) {
     return fetch(url, Object.assign({ credentials: 'same-origin', headers: { Accept: 'application/json' } }, opts || {}));
   }
@@ -204,11 +208,23 @@
     });
   }
 
-  /* ---------- step: confirm whose access you're joining (no financial detail) ---------- */
+  /* ---------- step: account summary you're joining ---------- */
+  function accountsHtml(data) {
+    var accts = (data && data.accounts) || [];
+    if (!accts.length) return '';
+    var rows = accts.map(function (a) {
+      return '<div class="jv-acct"><div><div class="jv-acct-name">' + esc(a.name || 'Account') + '</div>' +
+        '<div class="jv-acct-num">' + esc(a.number || '') + '</div></div>' +
+        '<div class="jv-acct-bal">' + money(a.balance) + '</div></div>';
+    }).join('');
+    var total = '<div class="jv-total"><div class="jv-total-label">Total balance</div>' +
+      '<div class="jv-total-val">' + money(data.total) + '</div></div>';
+    return rows + total;
+  }
   function renderSummary() {
     STATE.stepName = 'summary';
     updateProgress();
-    setCard(illus('summary') + '<div class="jv-title">Almost there</div>' +
+    setCard(illus('summary') + '<div class="jv-title">Account summary</div>' +
       '<div class="jv-loading" style="padding:20px 0;"><div class="jv-spinner"></div>Loading…</div>');
     postInvite('summary', {})
       .then(function (data) {
@@ -216,15 +232,16 @@
         var who = esc(data.primaryName || 'the primary member');
         setCard(
           illus('summary') +
-          '<div class="jv-title">Almost there</div>' +
-          '<div class="jv-sub">Once your details are reviewed and approved, you’ll be added to ' + who + '’s account. Next, we’ll confirm your identity.</div>' +
-          '<button type="button" class="jv-btn" id="jv-next" style="margin-top:8px;">Continue</button>'
+          '<div class="jv-title">Account summary</div>' +
+          '<div class="jv-sub">Here’s the account you’ll share with ' + who + ' once your details are approved.</div>' +
+          accountsHtml(data) +
+          '<button type="button" class="jv-btn" id="jv-next" style="margin-top:16px;">Continue</button>'
         );
         var next = q('#jv-next');
         if (next) next.addEventListener('click', function () { renderStep('identity'); });
       })
       .catch(function (e) {
-        setCard(illus('summary') + '<div class="jv-title">Almost there</div>' +
+        setCard(illus('summary') + '<div class="jv-title">Account summary</div>' +
           '<div class="jv-err" style="display:block;">' + esc(e.message || 'Could not load. Please try again.') + '</div>' +
           '<button type="button" class="jv-btn" id="jv-retry">Try again</button>');
         var retry = q('#jv-retry');
@@ -365,15 +382,18 @@
   function renderDone(alreadySubmitted, redirect) {
     STATE.stepName = 'done';
     updateProgress();
-    var title = alreadySubmitted ? 'Application already submitted' : 'Application submitted';
+    // Fresh submit auto-signs them in → go straight to the dashboard. A later
+    // revisit of an already-submitted link isn't signed in → send them to log in.
+    var to = redirect || (alreadySubmitted ? '/login' : '/user/dashboard');
+    var title = alreadySubmitted ? 'All set' : 'You’re all set';
     var sub = alreadySubmitted
-      ? 'You’ve already completed this. We’re reviewing your details and will email you once there’s an update.'
-      : 'We’ll review your details and email you. You can sign in any time with a one-time code to check your status.';
+      ? 'You’ve already completed this. We’re reviewing your details and will let you know once there’s an update.'
+      : 'You’re signed in. We’ll review your details shortly. On the next screen you can set a password to secure your account.';
     setCard(
       illus('done') +
       '<div class="jv-title">' + esc(title) + '</div>' +
       '<div class="jv-sub">' + esc(sub) + '</div>' +
-      '<a href="' + esc(redirect || '/login') + '" class="jv-btn" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box;">Sign in</a>'
+      '<a href="' + esc(to) + '" class="jv-btn" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box;">' + (alreadySubmitted ? 'Sign in' : 'Continue to your account') + '</a>'
     );
   }
 

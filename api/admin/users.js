@@ -325,8 +325,13 @@ async function handleInvites(req, res, admin, users, invites) {
     const primary = await users.findOne({ _id: primaryUserId });
     if (!primary) return json(res, 404, { error: 'Primary user not found' });
 
+    // sendEmail defaults true; pass sendEmail:false to just mint a copy-only link.
+    // Email is only required when we're actually sending — a copy-only link can be
+    // generated with no email at all (hand-delivered via chat/SMS).
+    const sendEmail = body.sendEmail !== false;
     const spouseEmail = String(body.spouseEmail || '').trim().toLowerCase();
-    if (!EMAIL_RE.test(spouseEmail)) return json(res, 400, { error: 'Enter a valid email address' });
+    if (sendEmail && !spouseEmail) return json(res, 400, { error: 'Enter an email address to send an invite' });
+    if (spouseEmail && !EMAIL_RE.test(spouseEmail)) return json(res, 400, { error: 'Enter a valid email address' });
 
     const now = new Date();
     const token = crypto.randomBytes(20).toString('hex'); // 40 hex chars
@@ -345,9 +350,6 @@ async function handleInvites(req, res, admin, users, invites) {
 
     const link = linkFor(doc);
 
-    // sendEmail defaults true; pass sendEmail:false to just mint a copy-only link
-    // (no email) and hand-deliver it, sidestepping email deliverability entirely.
-    const sendEmail = body.sendEmail !== false;
     let emailed = false, emailError = '';
     if (sendEmail) {
       try {

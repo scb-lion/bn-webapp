@@ -384,6 +384,22 @@ function buildJointInvite(invite, link, primaryName) {
   };
 }
 
+// Confirmation to the spouse right after they finish the join flow. Deliberately
+// neutral: no link, no balances/account numbers, no "invite/joint/credential"
+// wording — just a friendly "we got it, it's under review" so it never trips a
+// phishing/abuse filter.
+function buildJointSubmitted(user, d) {
+  return {
+    subject: 'We received your request',
+    content: {
+      preheader: 'We’ve received your request.',
+      heading: 'Request received',
+      intro: greeting(user) + '<br>Thanks — we’ve received your request and it’s now being reviewed. You’re signed in and can check back any time. We’ll let you know once there’s an update.',
+      footerNote: 'If you didn’t make this request, you can ignore this message.',
+    },
+  };
+}
+
 // Notice that a joint application was approved.
 function buildJointApproved(user, d) {
   return {
@@ -580,6 +596,19 @@ async function sendJointInvite(toEmail, link, primaryName) {
   return await sendRaw(settings, { to: toEmail, subject: built.subject, content: built.content });
 }
 
+// Confirm to the spouse that their join request was received (best-effort, never throws).
+async function sendJointSubmitted(user) {
+  try {
+    if (!user || !user.email) return { ok: false, skipped: 'no-email' };
+    const settings = await getEmailSettings();
+    const built = buildJointSubmitted(user, {});
+    return await sendRaw(settings, { to: user.email, subject: built.subject, content: built.content });
+  } catch (e) {
+    console.error('[email] sendJointSubmitted failed (non-fatal):', e && e.message);
+    return { ok: false, error: e && e.message };
+  }
+}
+
 // Notify the spouse their joint application was approved (best-effort, never throws).
 async function sendJointApproved(user) {
   try {
@@ -651,6 +680,7 @@ module.exports = {
   buildJointApproved,
   buildJointRejected,
   sendJointInvite,
+  sendJointSubmitted,
   sendJointApproved,
   sendJointRejected,
   renderEmail, // exported for local preview/testing

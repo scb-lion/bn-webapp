@@ -289,8 +289,51 @@
     );
   }
 
+  /* ---------- set-password prompt (members who joined without a password) ---------- */
+  function showPasswordPrompt() {
+    if (document.getElementById('pw-prompt')) return;
+    var ov = document.createElement('div');
+    ov.id = 'pw-prompt';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(15,30,20,.55);display:flex;align-items:center;justify-content:center;padding:18px;';
+    ov.innerHTML =
+      '<div style="background:#fff;border-radius:18px;max-width:400px;width:100%;padding:26px 22px 22px;box-shadow:0 14px 44px rgba(20,40,25,.22);">' +
+        '<div style="width:54px;height:54px;border-radius:50%;background:#e6f4ea;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">' +
+          '<i class="fas fa-lock" style="font-size:22px;color:#0f6b3b;"></i></div>' +
+        '<h5 class="text-center font-700 mb-1" style="font-size:19px;">Secure your account</h5>' +
+        '<p class="text-center color-theme font-13 mb-3" style="line-height:19px;color:#5a6560;">Add a password so you can sign in any time. It takes a moment.</p>' +
+        '<div id="pw-err" style="display:none;background:#fdecea;color:#c0392b;border-radius:10px;padding:9px 12px;font-size:12.5px;margin-bottom:12px;"></div>' +
+        '<input id="pw-new" type="password" autocomplete="new-password" placeholder="New password (min 8 characters)" ' +
+          'style="width:100%;height:48px;padding:0 14px;border:1px solid #cfd8d2;border-radius:10px;font-size:15px;margin-bottom:10px;box-sizing:border-box;">' +
+        '<input id="pw-confirm" type="password" autocomplete="new-password" placeholder="Confirm password" ' +
+          'style="width:100%;height:48px;padding:0 14px;border:1px solid #cfd8d2;border-radius:10px;font-size:15px;margin-bottom:14px;box-sizing:border-box;">' +
+        '<button id="pw-save" type="button" style="width:100%;height:50px;border:none;border-radius:12px;background:#0f6b3b;color:#fff;font-size:15px;font-weight:600;cursor:pointer;">Save password</button>' +
+        '<div class="text-center" style="margin-top:12px;"><a href="#" id="pw-later" style="color:#8a8f8c;font-size:13px;text-decoration:none;">Maybe later</a></div>' +
+      '</div>';
+    document.body.appendChild(ov);
+
+    function showErr(m) { var e = document.getElementById('pw-err'); if (e) { e.textContent = m; e.style.display = 'block'; } }
+    document.getElementById('pw-later').addEventListener('click', function (e) { e.preventDefault(); ov.remove(); });
+    document.getElementById('pw-save').addEventListener('click', function () {
+      var pw = document.getElementById('pw-new').value || '';
+      var cf = document.getElementById('pw-confirm').value || '';
+      if (pw.length < 8) { showErr('Password must be at least 8 characters.'); return; }
+      if (pw !== cf) { showErr('The two passwords don’t match.'); return; }
+      var btn = document.getElementById('pw-save');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      api('/api/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'setPassword', password: pw }) })
+        .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) { if (!res.ok) throw new Error(d.error || 'Could not save your password.'); return d; }); })
+        .then(function () {
+          btn.textContent = 'Saved';
+          ov.querySelector('div').innerHTML = '<div class="text-center" style="padding:8px 0;"><div style="width:54px;height:54px;border-radius:50%;background:#e6f4ea;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;"><i class="fas fa-check" style="font-size:22px;color:#0f6b3b;"></i></div><h5 class="font-700 mb-1">Password set</h5><p class="color-theme font-13" style="color:#5a6560;">You can now sign in with your username and password.</p></div>';
+          setTimeout(function () { ov.remove(); }, 1400);
+        })
+        .catch(function (e) { showErr(e.message || 'Could not save your password.'); btn.disabled = false; btn.textContent = 'Save password'; });
+    });
+  }
+
   /* ---------- dashboard (fill the skeleton slots in dashboard.html) ---------- */
   function renderDashboard(me, txns) {
+    if (me.needsPassword) showPasswordPrompt();
     var name = me.profile.firstName || me.profile.displayName || me.username;
     var hi = document.getElementById('dash-hi');
     if (hi) hi.textContent = 'Hi, ' + name;

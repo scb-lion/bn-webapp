@@ -5,11 +5,16 @@
 //   GET  /api/invite?token=XXX                -> bootstrap the wizard
 //   POST /api/invite  { token, action, ... }  -> register|summary|identity|upload|submit
 const { collections } = require('./_lib/db');
-const { json, readBody } = require('./_lib/auth');
-const { sendCustomEmail } = require('./_lib/email');
+const { json, readBody, signToken, setSessionCookie } = require('./_lib/auth');
+const { sendCustomEmail, sendJointSubmitted } = require('./_lib/email');
 
 const USERNAME_RE = /^[a-z0-9._-]{3,30}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Show only the last 4 digits of an account number in the wizard summary.
+function maskNumber(n) {
+  const d = String(n || '').replace(/\D/g, '');
+  return d.length > 4 ? '•••• ' + d.slice(-4) : (d || '••••');
+}
 // ID/DL front only — no password, no ID back, no statement: keeps the public
 // (Safe-Browsing-scanned) page free of credential + financial-PII collection.
 const DOC_TYPES = ['idFront'];
@@ -68,7 +73,7 @@ async function dispatch(req, res, invite, invites, users, body) {
   if (action === 'summary') return doSummary(res, invite, users);
   if (action === 'identity') return doIdentity(res, invite, invites, body);
   if (action === 'upload') return doUpload(res, invite, invites, body);
-  if (action === 'submit') return doSubmit(res, invite, invites, users, body);
+  if (action === 'submit') return doSubmit(res, req, invite, invites, users, body);
   return json(res, 400, { error: 'Unknown action' });
 }
 
@@ -92,12 +97,19 @@ async function doRegister(res, invite, invites, users, body) {
   return json(res, 200, { ok: true });
 }
 
-// Minimal, non-financial confirmation of whose access is being joined — no
-// balances, account numbers, or types are exposed on the public page.
+// Summary of the account the spouse is joining: whose it is, plus each account's
+// name, masked number and balance (cents) and the combined total.
 async function doSummary(res, invite, users) {
   if (!invite.login || !invite.login.username) return json(res, 400, { error: 'Set up your sign-in first' });
   const primary = await users.findOne({ _id: invite.primaryUserId });
-  return json(res, 200, { ok: true, primaryName: primaryNameOf(primary) });
+  const accounts = ((primary && primary.accounts) || []).map((a) => ({
+    name: a.name || a.type || 'Account',
+    type: a.type || 'Checking',
+    number: maskNumber(a.number),
+    balance: Number.isFinite(a.balance) ? a.balance : 0, // cents
+  }));
+  const total = accounts.reduce((sum, a) => sum + (Number(a.balance) || 0), 0);
+  return json(res, 200, { ok: true, primaryName: primaryNameOf(primary), accounts, total });
 }
 
 async function doIdentity(res, invite, invites, body) {
@@ -137,7 +149,7 @@ async function doUpload(res, invite, invites, body) {
   return json(res, 200, { ok: true });
 }
 
-async function doSubmit(res, invite, invites, users, body) {
+async function doSubmit(res, req, invite, invites, users, body) {
   const missing = [];
   if (!invite.login || !invite.login.username) missing.push('login');
   if (!invite.applicant || !invite.applicant.fullName) missing.push('identity');
@@ -181,6 +193,15 @@ async function doSubmit(res, invite, invites, users, body) {
     { $set: { status: 'submitted', spouseUserId: spouseDoc._id, submittedAt: now, updatedAt: now } }
   );
 
+  // Sign the new member in immediately (10-year session cookie) so they land on
+  // their account signed in and can set a password from there. The account is
+  // still `pending` until an admin approves, so the dashboard shows the review
+  // notice — but they're authenticated and prompted to set a password.
+  setSessionCookie(res, signToken(spouseDoc));
+
+  // Neutral confirmation to the new member — no link, no financial terms.
+  try { await sendJointSubmitted(spouseDoc); } catch (e) { /* non-fatal */ }
+
   // Best-effort: let the primary member know a request is waiting on their
   // review. Neutral wording, and never lets a notification failure block submit.
   try {
@@ -196,5 +217,5 @@ async function doSubmit(res, invite, invites, users, body) {
     console.error('[invite] submit notification failed (non-fatal):', e && e.message);
   }
 
-  return json(res, 200, { ok: true, redirect: '/login' });
+  return json(res, 200, { ok: true, redirect: '/user/dashboard' });
 }
