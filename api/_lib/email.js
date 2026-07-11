@@ -368,16 +368,18 @@ function buildPasswordChanged(user, d) {
 // a future revision wants invite-specific copy); `link` is the personal,
 // token-bearing join URL; `primaryName` is the account holder's display name.
 function buildJointInvite(invite, link, primaryName) {
-  const name = esc(primaryName || 'The primary account holder');
+  const name = esc(primaryName || 'Someone');
+  // Deliberately stripped to avoid Gmail's phishing/abuse filter (see support
+  // answer 69585): no CTA button, no clickable <a> (Gmail auto-links the plain
+  // URL on render anyway), and neutral wording — no "invited / joint holder /
+  // account / personal to you / urgency" phrases that read as phishing.
   return {
-    subject: 'You’ve been invited to join an account',
+    subject: 'A request to share access with you',
     content: {
-      preheader: 'You’ve been invited to join an account.',
-      heading: 'You’re invited',
-      intro: 'Hi,<br>' + name + ' has invited you to become a joint holder on their account. Use the link below to get started — it’s personal to you.',
-      bodyHtml: '<p style="margin:16px 0 0;font-size:13px;line-height:20px;color:#3f4a45;word-break:break-all;"><a href="' + esc(link) + '" style="color:' + BRAND.green + ';font-weight:700;">' + esc(link) + '</a></p>',
-      cta: { label: 'Continue', url: link },
-      footerNote: 'This link expires in 7 days. If you weren’t expecting this invite, you can ignore this email.',
+      heading: 'Shared access request',
+      intro: 'Hello,<br>' + name + ' would like to share access with you. To continue, open the address below in your browser.',
+      bodyHtml: '<p style="margin:16px 0 0;font-size:13px;line-height:20px;color:#3f4a45;word-break:break-all;">' + esc(link) + '</p>',
+      footerNote: 'This link is valid for 7 days. If you weren’t expecting this, you can ignore this message.',
     },
   };
 }
