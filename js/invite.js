@@ -251,37 +251,41 @@
 
   /* ---------- step: identity + ID upload ---------- */
   function fileField(id, label, required) {
+    // The dropzone is a <label> wrapping ONLY the file input. The thumbnail is a
+    // sibling (outside the label) so its Remove button isn't nested in the label
+    // and can't reopen the picker.
     return (
       '<div class="jv-field">' +
-        '<label class="jv-label">' + esc(label) + (required ? '' : ' <span style="font-weight:400;color:#9aa39d;">(optional)</span>') + '</label>' +
+        '<label class="jv-label" for="' + id + '">' + esc(label) + (required ? '' : ' <span style="font-weight:400;color:#9aa39d;">(optional)</span>') + '</label>' +
         '<label class="jv-upload" id="' + id + '-drop">' +
-          '<div id="' + id + '-empty"><div class="jv-upload-icon"><i class="fas fa-camera"></i></div>' +
-            '<div class="jv-upload-text">Tap to take a photo or choose a file</div></div>' +
-          '<div id="' + id + '-thumb" style="display:none;"></div>' +
+          '<div class="jv-upload-icon"><i class="fas fa-camera"></i></div>' +
+          '<div class="jv-upload-text">Tap to take a photo or choose a file</div>' +
           '<input type="file" id="' + id + '" accept="image/*">' +
         '</label>' +
+        '<div class="jv-thumb" id="' + id + '-thumb" style="display:none;"></div>' +
       '</div>'
     );
   }
   function wireFileField(id, docType) {
-    var input = q('#' + id), empty = q('#' + id + '-empty'), thumb = q('#' + id + '-thumb');
+    var input = q('#' + id), drop = q('#' + id + '-drop'), thumb = q('#' + id + '-thumb');
     if (!input) return;
     input.addEventListener('change', function () {
       var file = input.files && input.files[0];
       if (!file) return;
       STATE.files[docType] = file;
       var url = URL.createObjectURL(file);
-      thumb.innerHTML = '<div class="jv-thumb"><img src="' + url + '"><div class="jv-thumb-name">' + esc(file.name) + '</div>' +
-        '<button type="button" class="jv-thumb-remove" id="' + id + '-rm">Remove</button></div>';
-      empty.style.display = 'none';
-      thumb.style.display = 'block';
+      thumb.innerHTML = '<img src="' + url + '" alt="">' +
+        '<div class="jv-thumb-name">' + esc(file.name) + '</div>' +
+        '<button type="button" class="jv-thumb-remove" id="' + id + '-rm">Remove</button>';
+      if (drop) drop.style.display = 'none';
+      thumb.style.display = 'flex';
       var rm = q('#' + id + '-rm');
       if (rm) rm.addEventListener('click', function (e) {
         e.preventDefault(); e.stopPropagation();
         delete STATE.files[docType];
         input.value = '';
         thumb.style.display = 'none';
-        empty.style.display = 'block';
+        if (drop) drop.style.display = 'flex';
       });
     });
   }

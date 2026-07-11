@@ -83,17 +83,25 @@
 
     /* upload */
     .jv-upload {
-      border: 2px dashed #cfe0c8; border-radius: 14px; padding: 20px 14px; text-align: center;
-      cursor: pointer; background: var(--bg-soft); transition: border-color .15s ease;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      width: 100%; border: 2px dashed #cfe0c8; border-radius: 14px; padding: 22px 14px;
+      text-align: center; cursor: pointer; background: var(--bg-soft);
+      transition: border-color .15s ease;
     }
     .jv-upload:hover { border-color: var(--brand); }
-    .jv-upload input[type=file] { display: none; }
-    .jv-upload-icon { font-size: 26px; color: var(--brand); margin-bottom: 6px; }
-    .jv-upload-text { font-size: 13.5px; color: var(--ink-soft); }
-    .jv-thumb { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--bg-soft); border-radius: 12px; margin-top: 8px; }
-    .jv-thumb img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; background: #fff; }
-    .jv-thumb .jv-thumb-name { font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .jv-thumb .jv-thumb-remove { color: var(--danger); font-size: 12px; font-weight: 600; cursor: pointer; background: none; border: none; }
+    .jv-upload input[type=file] {
+      position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none;
+    }
+    .jv-upload-icon { font-size: 26px; color: var(--brand); margin-bottom: 6px; line-height: 1; }
+    .jv-upload-text { font-size: 13.5px; color: var(--ink-soft); line-height: 18px; }
+    .jv-thumb {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      padding: 10px 12px; background: var(--bg-soft); border-radius: 12px; margin-top: 8px;
+      border: 1px solid var(--line);
+    }
+    .jv-thumb img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; background: #fff; flex-shrink: 0; }
+    .jv-thumb-name { font-size: 13px; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .jv-thumb-remove { color: var(--danger); font-size: 12.5px; font-weight: 600; cursor: pointer; background: none; border: none; flex-shrink: 0; padding: 6px 2px; }
 
     /* account summary cards */
     .jv-acct { display: flex; justify-content: space-between; align-items: center; padding: 14px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; }
