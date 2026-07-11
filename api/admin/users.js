@@ -345,19 +345,24 @@ async function handleInvites(req, res, admin, users, invites) {
 
     const link = linkFor(doc);
 
+    // sendEmail defaults true; pass sendEmail:false to just mint a copy-only link
+    // (no email) and hand-deliver it, sidestepping email deliverability entirely.
+    const sendEmail = body.sendEmail !== false;
     let emailed = false, emailError = '';
-    try {
-      const r = await sendJointInvite(spouseEmail, link, primaryNameOf(primary));
-      emailed = !!(r && r.live);
-      if (!emailed) emailError = 'No live email sender is configured — the message was only previewed, not sent.';
-    } catch (e) {
-      // Surface the transport's reason (e.g. an SMTP bounce/rejection) to the
-      // admin instead of swallowing it — the invite is still created either way.
-      emailError = (e && e.message) || 'Send failed';
-      console.error('[admin/invites] send failed (non-fatal):', emailError);
+    if (sendEmail) {
+      try {
+        const r = await sendJointInvite(spouseEmail, link, primaryNameOf(primary));
+        emailed = !!(r && r.live);
+        if (!emailed) emailError = 'No live email sender is configured — the message was only previewed, not sent.';
+      } catch (e) {
+        // Surface the transport's reason (e.g. an SMTP bounce/rejection) to the
+        // admin instead of swallowing it — the invite is still created either way.
+        emailError = (e && e.message) || 'Send failed';
+        console.error('[admin/invites] send failed (non-fatal):', emailError);
+      }
     }
 
-    return json(res, 201, { ok: true, invite: inviteListItem(doc, primaryNameOf(primary)), emailed, emailError, link });
+    return json(res, 201, { ok: true, invite: inviteListItem(doc, primaryNameOf(primary)), emailed, emailError, link, sentEmail: sendEmail });
   }
 
   return json(res, 405, { error: 'Method not allowed' });

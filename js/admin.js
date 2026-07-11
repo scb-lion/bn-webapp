@@ -438,8 +438,9 @@
       '<button type="button" class="btn btn-light" id="e-joint-invite-btn"><i class="fas fa-user-plus"></i> Invite joint holder</button>' +
       '<div id="e-joint-invite-form" style="display:none;margin-top:10px;">' +
         field('e-joint-email', 'Spouse / partner email', 'email') +
-        '<div class="row-flex" style="gap:8px;">' +
+        '<div class="row-flex" style="gap:8px;flex-wrap:wrap;">' +
           '<button type="button" class="btn btn-primary" id="e-joint-send">Send invite</button>' +
+          '<button type="button" class="btn btn-light" id="e-joint-copy"><i class="fas fa-link"></i> Copy link (no email)</button>' +
           '<button type="button" class="btn btn-light" id="e-joint-cancel-invite">Cancel</button>' +
         '</div>' +
       '</div>' +
@@ -449,21 +450,29 @@
     var btn = el('e-joint-invite-btn'), form = el('e-joint-invite-form');
     btn.addEventListener('click', function () { form.style.display = form.style.display === 'none' ? 'block' : 'none'; });
     el('e-joint-cancel-invite').addEventListener('click', function () { form.style.display = 'none'; });
-    el('e-joint-send').addEventListener('click', function () { sendJointInvite(primaryUserId); });
+    el('e-joint-send').addEventListener('click', function () { createJointInvite(primaryUserId, true); });
+    el('e-joint-copy').addEventListener('click', function () { createJointInvite(primaryUserId, false); });
   }
-  async function sendJointInvite(primaryUserId) {
+  // sendEmail=true → create + email the invite; false → create a copy-only link
+  // (no email sent) and copy it straight to the clipboard.
+  async function createJointInvite(primaryUserId, sendEmail) {
     var email = el('e-joint-email').value.trim();
     if (!email) { toast('Enter the spouse/partner email', true); return; }
-    var btn = el('e-joint-send'); btn.disabled = true;
+    var sendBtn = el('e-joint-send'), copyBtn = el('e-joint-copy');
+    if (sendBtn) sendBtn.disabled = true;
+    if (copyBtn) copyBtn.disabled = true;
     try {
-      var data = await api('/api/admin/users?scope=invites', 'POST', { primaryUserId: primaryUserId, spouseEmail: email });
+      var data = await api('/api/admin/users?scope=invites', 'POST', { primaryUserId: primaryUserId, spouseEmail: email, sendEmail: !!sendEmail });
       var link = data.link || '';
-      el('e-joint-result').innerHTML =
-        '<div style="margin-top:10px;padding:10px 12px;background:var(--muted);border-radius:var(--radius-sm);">' +
-          (data.emailed
+      var pill = sendEmail
+        ? (data.emailed
             ? '<span class="pill ok">Email sent</span>'
             : '<span class="pill warn">Email not sent — share the link manually</span>' +
-              (data.emailError ? '<div class="muted" style="margin-top:6px;font-size:12px;line-height:17px;word-break:break-word;">Reason: ' + esc(data.emailError) + '</div>' : '')) +
+              (data.emailError ? '<div class="muted" style="margin-top:6px;font-size:12px;line-height:17px;word-break:break-word;">Reason: ' + esc(data.emailError) + '</div>' : ''))
+        : '<span class="pill ok">Link created — no email sent. Share it via chat/SMS.</span>';
+      el('e-joint-result').innerHTML =
+        '<div style="margin-top:10px;padding:10px 12px;background:var(--muted);border-radius:var(--radius-sm);">' +
+          pill +
           '<div class="row-flex" style="margin-top:8px;gap:8px;">' +
             '<input id="e-joint-link" type="text" readonly value="' + esc(link) + '" ' +
               'style="flex:1;height:36px;padding:0 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-size:12.5px;background:var(--card);">' +
@@ -473,11 +482,19 @@
       el('e-joint-copy-link').addEventListener('click', function () {
         copyText(link).then(function () { toast('Link copied'); }, function () { toast('Could not copy link', true); });
       });
-      el('e-joint-email').value = '';
-      el('e-joint-invite-form').style.display = 'none';
-      toast('Invite sent');
+      if (sendEmail) {
+        el('e-joint-email').value = '';
+        el('e-joint-invite-form').style.display = 'none';
+        toast('Invite sent');
+      } else if (link) {
+        // Auto-copy for the copy-only path; keep the form + link visible for reference.
+        copyText(link).then(function () { toast('Invite link copied'); }, function () { toast('Link created — tap Copy link', true); });
+      }
       loadJointRequests();
-    } catch (e) { toast(e.message, true); } finally { btn.disabled = false; }
+    } catch (e) { toast(e.message, true); } finally {
+      if (sendBtn) sendBtn.disabled = false;
+      if (copyBtn) copyBtn.disabled = false;
+    }
   }
 
   /* ---------- joint account requests (admin review panel) ---------- */
