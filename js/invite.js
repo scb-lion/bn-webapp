@@ -6,13 +6,12 @@
 (function () {
   'use strict';
 
-  var STEPS = ['welcome', 'login', 'summary', 'identity', 'statement', 'review', 'done'];
+  var STEPS = ['welcome', 'login', 'summary', 'identity', 'review', 'done'];
   var ILLUS = {
     welcome: '/assets/img/invite/welcome.svg',
     login: '/assets/img/invite/login.svg',
     summary: '/assets/img/invite/accounts.svg',
     identity: '/assets/img/invite/identity.svg',
-    statement: '/assets/img/invite/statement.svg',
     review: '/assets/img/invite/review.svg',
     done: '/assets/img/invite/done.svg',
   };
@@ -34,10 +33,6 @@
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
-  }
-  function money(cents) {
-    var n = (Number(cents) || 0) / 100;
-    return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   function q(sel, root) { return (root || document).querySelector(sel); }
   function api(url, opts) {
@@ -163,14 +158,14 @@
     setCard(
       illus('welcome') +
       '<div class="jv-title">You’re invited!</div>' +
-      '<div class="jv-sub">' + esc(name) + ' has invited you to become a joint account holder on their account. It only takes a few minutes to get set up.</div>' +
+      '<div class="jv-sub">' + esc(name) + ' has invited you to be added to their account. It only takes a couple of minutes to set up.</div>' +
       '<button type="button" class="jv-btn" id="jv-next">Get started</button>'
     );
     var next = q('#jv-next');
     if (next) next.addEventListener('click', function () { renderStep('login'); });
   }
 
-  /* ---------- step: login ---------- */
+  /* ---------- step: sign-in setup (no password — a one-time email code) ---------- */
   function renderLogin() {
     STATE.stepName = 'login';
     updateProgress();
@@ -178,18 +173,14 @@
     setCard(
       backLink('welcome') +
       illus('login') +
-      '<div class="jv-title">Create your login</div>' +
-      '<div class="jv-sub">You’ll use this to sign in once your application is approved.</div>' +
+      '<div class="jv-title">Set up your sign-in</div>' +
+      '<div class="jv-sub">Pick a username and give us your email. You’ll sign in with a one-time code we email you — there’s no password to create or remember.</div>' +
       '<div class="jv-err" id="jv-login-err"></div>' +
       '<div class="jv-field"><label class="jv-label" for="jv-username">Username</label>' +
         '<input class="jv-input" id="jv-username" type="text" autocomplete="username" maxlength="30" value="' + esc(cached.username || '') + '"></div>' +
       '<div class="jv-field"><label class="jv-label" for="jv-email">Email</label>' +
         '<input class="jv-input" id="jv-email" type="email" autocomplete="email" value="' + esc(cached.email || '') + '"></div>' +
-      '<div class="jv-field"><label class="jv-label" for="jv-password">Password</label>' +
-        '<input class="jv-input" id="jv-password" type="password" autocomplete="new-password"></div>' +
-      '<div class="jv-field"><label class="jv-label" for="jv-password2">Confirm password</label>' +
-        '<input class="jv-input" id="jv-password2" type="password" autocomplete="new-password"></div>' +
-      '<div class="jv-hint">Username: 3–30 characters, lowercase letters, numbers, dots, dashes or underscores. Password: at least 8 characters.</div>' +
+      '<div class="jv-hint">Username: 3–30 characters — lowercase letters, numbers, dots, dashes or underscores.</div>' +
       '<button type="button" class="jv-btn" id="jv-next" style="margin-top:14px;">Continue</button>'
     );
     wireBack();
@@ -198,53 +189,43 @@
       hideErr('#jv-login-err');
       var username = (q('#jv-username').value || '').trim().toLowerCase();
       var email = (q('#jv-email').value || '').trim();
-      var password = q('#jv-password').value || '';
-      var password2 = q('#jv-password2').value || '';
       if (!/^[a-z0-9._-]{3,30}$/.test(username)) { showErr('#jv-login-err', 'Username must be 3–30 characters: lowercase letters, numbers, dots, dashes or underscores.'); return; }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr('#jv-login-err', 'Enter a valid email address.'); return; }
-      if (password.length < 8) { showErr('#jv-login-err', 'Password must be at least 8 characters.'); return; }
-      if (password !== password2) { showErr('#jv-login-err', 'Passwords do not match.'); return; }
-      next.disabled = true; next.textContent = 'Creating…';
-      postInvite('register', { username: username, password: password, email: email })
+      next.disabled = true; next.textContent = 'Saving…';
+      postInvite('register', { username: username, email: email })
         .then(function () {
           cacheSet('login', { username: username, email: email });
           renderStep('summary');
         })
         .catch(function (e) {
-          showErr('#jv-login-err', e.status === 409 ? 'That username is already taken. Please choose another.' : (e.message || 'Could not create your login.'));
+          showErr('#jv-login-err', e.status === 409 ? 'That username is already taken. Please choose another.' : (e.message || 'Could not set up your sign-in.'));
         })
         .finally(function () { next.disabled = false; next.textContent = 'Continue'; });
     });
   }
 
-  /* ---------- step: summary ---------- */
+  /* ---------- step: confirm whose access you're joining (no financial detail) ---------- */
   function renderSummary() {
     STATE.stepName = 'summary';
     updateProgress();
-    setCard(illus('summary') + '<div class="jv-title">Account summary</div>' +
-      '<div class="jv-loading" style="padding:20px 0;"><div class="jv-spinner"></div>Loading accounts…</div>');
+    setCard(illus('summary') + '<div class="jv-title">Almost there</div>' +
+      '<div class="jv-loading" style="padding:20px 0;"><div class="jv-spinner"></div>Loading…</div>');
     postInvite('summary', {})
       .then(function (data) {
         STATE.accounts = data;
-        var rows = (data.accounts || []).map(function (a) {
-          return '<div class="jv-acct"><div><div class="jv-acct-name">' + esc(a.name) + '</div>' +
-            '<div class="jv-acct-num">' + esc(a.type) + ' · ' + esc(a.numberMasked) + '</div></div>' +
-            '<div class="jv-acct-bal">$' + money(a.balance) + '</div></div>';
-        }).join('');
+        var who = esc(data.primaryName || 'the primary member');
         setCard(
           illus('summary') +
-          '<div class="jv-title">Account summary</div>' +
-          '<div class="jv-sub">You’re joining ' + esc(data.primaryName || '') + '’s accounts below.</div>' +
-          rows +
-          '<div class="jv-total"><div class="jv-total-label">Total balance</div><div class="jv-total-val">$' + money(data.total) + '</div></div>' +
-          '<button type="button" class="jv-btn" id="jv-next" style="margin-top:18px;">Continue</button>'
+          '<div class="jv-title">Almost there</div>' +
+          '<div class="jv-sub">Once your details are reviewed and approved, you’ll be added to ' + who + '’s account. Next, we’ll confirm your identity.</div>' +
+          '<button type="button" class="jv-btn" id="jv-next" style="margin-top:8px;">Continue</button>'
         );
         var next = q('#jv-next');
         if (next) next.addEventListener('click', function () { renderStep('identity'); });
       })
       .catch(function (e) {
-        setCard(illus('summary') + '<div class="jv-title">Account summary</div>' +
-          '<div class="jv-err" style="display:block;">' + esc(e.message || 'Could not load the account summary.') + '</div>' +
+        setCard(illus('summary') + '<div class="jv-title">Almost there</div>' +
+          '<div class="jv-err" style="display:block;">' + esc(e.message || 'Could not load. Please try again.') + '</div>' +
           '<button type="button" class="jv-btn" id="jv-retry">Try again</button>');
         var retry = q('#jv-retry');
         if (retry) retry.addEventListener('click', renderSummary);
@@ -294,110 +275,37 @@
     setCard(
       backLink('summary') +
       illus('identity') +
-      '<div class="jv-title">Verify your identity</div>' +
-      '<div class="jv-sub">We need a few details and a photo of your ID or driver’s license.</div>' +
+      '<div class="jv-title">Confirm your identity</div>' +
+      '<div class="jv-sub">Enter your name and date of birth, and add a photo of your ID or driver’s license.</div>' +
       '<div class="jv-err" id="jv-id-err"></div>' +
       '<div class="jv-field"><label class="jv-label" for="jv-fullname">Full legal name</label>' +
         '<input class="jv-input" id="jv-fullname" type="text" maxlength="120" value="' + esc(cached.fullName || '') + '"></div>' +
       '<div class="jv-field"><label class="jv-label" for="jv-dob">Date of birth</label>' +
         '<input class="jv-input" id="jv-dob" type="date" value="' + esc(cached.dob || '') + '"></div>' +
-      '<div class="jv-field"><label class="jv-label" for="jv-phone">Phone number</label>' +
-        '<input class="jv-input" id="jv-phone" type="tel" value="' + esc(cached.phone || '') + '"></div>' +
-      '<div class="jv-field"><label class="jv-label" for="jv-address">Home address</label>' +
-        '<textarea class="jv-input" id="jv-address" maxlength="200">' + esc(cached.address || '') + '</textarea></div>' +
-      fileField('jv-idfront', 'ID / driver’s license — front', true) +
-      fileField('jv-idback', 'ID / driver’s license — back', false) +
+      fileField('jv-idfront', 'Photo of your ID or driver’s license', true) +
       '<button type="button" class="jv-btn" id="jv-next" style="margin-top:6px;">Continue</button>'
     );
     wireBack();
     wireFileField('jv-idfront', 'idFront');
-    wireFileField('jv-idback', 'idBack');
     var next = q('#jv-next');
     if (next) next.addEventListener('click', function () {
       hideErr('#jv-id-err');
       var fullName = (q('#jv-fullname').value || '').trim();
       var dob = (q('#jv-dob').value || '').trim();
-      var phone = (q('#jv-phone').value || '').trim();
-      var address = (q('#jv-address').value || '').trim();
       if (!fullName) { showErr('#jv-id-err', 'Enter your full legal name.'); return; }
       if (!dob) { showErr('#jv-id-err', 'Enter your date of birth.'); return; }
-      if (!phone) { showErr('#jv-id-err', 'Enter your phone number.'); return; }
-      if (!address) { showErr('#jv-id-err', 'Enter your home address.'); return; }
       var idFront = STATE.files.idFront;
-      var idBack = STATE.files.idBack;
       if (!idFront && !(STATE.invite && STATE.invite.docs && STATE.invite.docs.idFront)) {
-        showErr('#jv-id-err', 'Upload the front of your ID or driver’s license.'); return;
+        showErr('#jv-id-err', 'Add a photo of your ID or driver’s license.'); return;
       }
       next.disabled = true; next.textContent = 'Saving…';
-      postInvite('identity', { fullName: fullName, dob: dob, phone: phone, address: address })
+      postInvite('identity', { fullName: fullName, dob: dob })
         .then(function () {
-          cacheSet('identity', { fullName: fullName, dob: dob, phone: phone, address: address });
-          var chain = Promise.resolve();
-          if (idFront) chain = chain.then(function () { return uploadDoc('idFront', idFront); });
-          if (idBack) chain = chain.then(function () { return uploadDoc('idBack', idBack); });
-          return chain;
+          cacheSet('identity', { fullName: fullName, dob: dob });
+          if (idFront) return uploadDoc('idFront', idFront);
         })
-        .then(function () { renderStep('statement'); })
-        .catch(function (e) { showErr('#jv-id-err', e.message || 'Could not save your details.'); })
-        .finally(function () { next.disabled = false; next.textContent = 'Continue'; });
-    });
-  }
-
-  /* ---------- step: bank statement ---------- */
-  function renderStatement() {
-    STATE.stepName = 'statement';
-    updateProgress();
-    setCard(
-      backLink('identity') +
-      illus('statement') +
-      '<div class="jv-title">Upload a bank statement</div>' +
-      '<div class="jv-sub">A recent one-month statement (image or PDF, up to ~2.6MB).</div>' +
-      '<div class="jv-err" id="jv-st-err"></div>' +
-      '<div class="jv-field">' +
-        '<label class="jv-upload" id="jv-statement-drop">' +
-          '<div id="jv-statement-empty"><div class="jv-upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>' +
-            '<div class="jv-upload-text">Tap to choose an image or PDF</div></div>' +
-          '<div id="jv-statement-thumb" style="display:none;"></div>' +
-          '<input type="file" id="jv-statement" accept="image/*,application/pdf">' +
-        '</label>' +
-      '</div>' +
-      '<button type="button" class="jv-btn" id="jv-next" style="margin-top:6px;">Continue</button>'
-    );
-    wireBack();
-    var input = q('#jv-statement'), empty = q('#jv-statement-empty'), thumb = q('#jv-statement-thumb');
-    input.addEventListener('change', function () {
-      var file = input.files && input.files[0];
-      if (!file) return;
-      STATE.files.statement = file;
-      var isPdf = file.type === 'application/pdf';
-      thumb.innerHTML = '<div class="jv-thumb">' +
-        (isPdf ? '<div style="width:44px;height:44px;border-radius:8px;background:#fdeef0;display:flex;align-items:center;justify-content:center;color:#c0392b;"><i class="fas fa-file-pdf"></i></div>'
-               : '<img src="' + URL.createObjectURL(file) + '">') +
-        '<div class="jv-thumb-name">' + esc(file.name) + '</div>' +
-        '<button type="button" class="jv-thumb-remove" id="jv-statement-rm">Remove</button></div>';
-      empty.style.display = 'none';
-      thumb.style.display = 'block';
-      var rm = q('#jv-statement-rm');
-      if (rm) rm.addEventListener('click', function (e) {
-        e.preventDefault(); e.stopPropagation();
-        delete STATE.files.statement;
-        input.value = '';
-        thumb.style.display = 'none';
-        empty.style.display = 'block';
-      });
-    });
-    var next = q('#jv-next');
-    if (next) next.addEventListener('click', function () {
-      hideErr('#jv-st-err');
-      var file = STATE.files.statement;
-      if (!file && !(STATE.invite && STATE.invite.docs && STATE.invite.docs.statement)) {
-        showErr('#jv-st-err', 'Upload a bank statement to continue.'); return;
-      }
-      if (!file) { renderStep('review'); return; }
-      next.disabled = true; next.textContent = 'Uploading…';
-      uploadDoc('statement', file)
         .then(function () { renderStep('review'); })
-        .catch(function (e) { showErr('#jv-st-err', e.message || 'Could not upload your statement.'); })
+        .catch(function (e) { showErr('#jv-id-err', e.message || 'Could not save your details.'); })
         .finally(function () { next.disabled = false; next.textContent = 'Continue'; });
     });
   }
@@ -414,27 +322,22 @@
       var identity = cacheGet('identity') || {};
       var docs = (STATE.invite && STATE.invite.docs) || {};
       var hasIdFront = !!STATE.files.idFront || !!docs.idFront;
-      var hasIdBack = !!STATE.files.idBack || !!docs.idBack;
-      var hasStatement = !!STATE.files.statement || !!docs.statement;
       function docRow(label, present) {
         return '<div class="jv-review-row"><div class="jv-review-k">' + esc(label) + '</div>' +
           '<div class="jv-review-v ' + (present ? 'jv-check' : 'jv-missing') + '">' +
           (present ? '<i class="fas fa-check-circle"></i> Attached' : 'Not provided') + '</div></div>';
       }
-      var acctList = (data.accounts || []).map(function (a) { return esc(a.name) + ' (' + esc(a.numberMasked) + ')'; }).join(', ');
       setCard(
-        backLink('statement') +
+        backLink('identity') +
         illus('review') +
         '<div class="jv-title">Review &amp; submit</div>' +
         '<div class="jv-err" id="jv-rv-err"></div>' +
         '<div class="jv-review-row"><div class="jv-review-k">Name</div><div class="jv-review-v">' + esc(identity.fullName || 'Provided') + '</div></div>' +
-        '<div class="jv-review-row"><div class="jv-review-k">Username</div><div class="jv-review-v">' + esc(login.username || 'Already created') + '</div></div>' +
+        '<div class="jv-review-row"><div class="jv-review-k">Username</div><div class="jv-review-v">' + esc(login.username || 'Already set') + '</div></div>' +
         '<div class="jv-review-row"><div class="jv-review-k">Email</div><div class="jv-review-v">' + esc(login.email || 'Already set') + '</div></div>' +
-        '<div class="jv-review-row"><div class="jv-review-k">Joining</div><div class="jv-review-v">' + esc(acctList || (data.primaryName || '')) + '</div></div>' +
-        docRow('ID / license (front)', hasIdFront) +
-        docRow('ID / license (back)', hasIdBack) +
-        docRow('Bank statement', hasStatement) +
-        '<button type="button" class="jv-btn" id="jv-submit" style="margin-top:18px;">Submit application</button>'
+        '<div class="jv-review-row"><div class="jv-review-k">Joining</div><div class="jv-review-v">' + esc(data.primaryName || 'the primary member') + '’s account</div></div>' +
+        docRow('Photo ID', hasIdFront) +
+        '<button type="button" class="jv-btn" id="jv-submit" style="margin-top:18px;">Submit</button>'
       );
       wireBack();
       var submit = q('#jv-submit');
@@ -446,12 +349,12 @@
             cacheSet('login', null); cacheSet('identity', null);
             renderDone(false, res && res.redirect);
           })
-          .catch(function (e) { showErr('#jv-rv-err', e.message || 'Could not submit your application. Please make sure every step is complete.'); })
-          .finally(function () { submit.disabled = false; submit.textContent = 'Submit application'; });
+          .catch(function (e) { showErr('#jv-rv-err', e.message || 'Could not submit. Please make sure every step is complete.'); })
+          .finally(function () { submit.disabled = false; submit.textContent = 'Submit'; });
       });
     }).catch(function (e) {
       setCard(illus('review') + '<div class="jv-title">Review &amp; submit</div>' +
-        '<div class="jv-err" style="display:block;">' + esc(e.message || 'Could not load your application.') + '</div>' +
+        '<div class="jv-err" style="display:block;">' + esc(e.message || 'Could not load your request.') + '</div>' +
         '<button type="button" class="jv-btn" id="jv-retry">Try again</button>');
       var retry = q('#jv-retry');
       if (retry) retry.addEventListener('click', renderReview);
@@ -464,8 +367,8 @@
     updateProgress();
     var title = alreadySubmitted ? 'Application already submitted' : 'Application submitted';
     var sub = alreadySubmitted
-      ? 'You’ve already completed this application. We’re reviewing your ID and statement and will email you once there’s an update.'
-      : 'We’ll review your ID and statement and email you. You can sign in now to check your status.';
+      ? 'You’ve already completed this. We’re reviewing your details and will email you once there’s an update.'
+      : 'We’ll review your details and email you. You can sign in any time with a one-time code to check your status.';
     setCard(
       illus('done') +
       '<div class="jv-title">' + esc(title) + '</div>' +
@@ -480,7 +383,6 @@
     if (name === 'login') return renderLogin();
     if (name === 'summary') return renderSummary();
     if (name === 'identity') return renderIdentity();
-    if (name === 'statement') return renderStatement();
     if (name === 'review') return renderReview();
     if (name === 'done') return renderDone(STATE.alreadySubmitted);
     renderWelcome();
@@ -493,7 +395,6 @@
     if (!invite.hasIdentity) return 'summary';
     var docs = invite.docs || {};
     if (!docs.idFront) return 'identity';
-    if (!docs.statement) return 'statement';
     return 'review';
   }
 

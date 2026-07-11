@@ -218,7 +218,7 @@ function inviteListItem(inv, primaryName) {
     applicantName: (inv.applicant && inv.applicant.fullName) || '',
     createdAt: inv.createdAt || null,
     submittedAt: inv.submittedAt || null,
-    hasDocs: !!(inv.docs && (inv.docs.idFront || inv.docs.statement)),
+    hasDocs: !!(inv.docs && inv.docs.idFront),
   };
 }
 
@@ -228,6 +228,12 @@ function docSummary(doc) {
 
 async function handleInvites(req, res, admin, users, invites) {
   const idParam = (req.query || {}).id;
+
+  // Base URL for the shareable /join invite link, so an admin can copy it for any
+  // invite (not just right after sending it).
+  const settings = await getEmailSettings();
+  const base = (settings.siteUrl || ('https://' + (req.headers.host || ''))).replace(/\/+$/, '');
+  const linkFor = (inv) => base + '/join?token=' + inv.token;
 
   // -------- single-invite operations (?id=) --------
   if (idParam) {
@@ -249,6 +255,7 @@ async function handleInvites(req, res, admin, users, invites) {
           id: String(invite._id),
           status: invite.status,
           spouseEmail: invite.spouseEmail,
+          link: linkFor(invite),
           primaryName: primaryNameOf(primary),
           primaryUserId: String(invite.primaryUserId),
           applicant: invite.applicant || null,
@@ -303,7 +310,11 @@ async function handleInvites(req, res, admin, users, invites) {
     const primaries = await users.find({ _id: { $in: primaryIds.map(oid).filter(Boolean) } }).toArray();
     const primaryMap = new Map(primaries.map((p) => [String(p._id), p]));
 
-    const out = list.map((inv) => inviteListItem(inv, primaryNameOf(primaryMap.get(String(inv.primaryUserId)))));
+    const out = list.map((inv) => {
+      const item = inviteListItem(inv, primaryNameOf(primaryMap.get(String(inv.primaryUserId))));
+      item.link = linkFor(inv);
+      return item;
+    });
     return json(res, 200, { invites: out });
   }
 
@@ -332,9 +343,7 @@ async function handleInvites(req, res, admin, users, invites) {
     const result = await invites.insertOne(doc);
     doc._id = result.insertedId;
 
-    const settings = await getEmailSettings();
-    const siteUrl = (settings.siteUrl || ('https://' + (req.headers.host || ''))).replace(/\/+$/, '');
-    const link = siteUrl + '/join?token=' + token;
+    const link = linkFor(doc);
 
     let emailed = false, emailError = '';
     try {

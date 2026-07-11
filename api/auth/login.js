@@ -10,20 +10,34 @@ module.exports = async (req, res) => {
   const body = await readBody(req);
   const username = String(body.username || '').trim().toLowerCase();
   const password = String(body.password || '');
-  if (!username || !password) {
-    return json(res, 400, { error: 'Username and password are required' });
+  if (!username) {
+    return json(res, 400, { error: 'Username is required' });
   }
 
   const { users } = await collections();
   const user = await users.findOne({ username });
-  // Constant-ish response regardless of which check fails, to avoid user enumeration.
-  const ok = user && user.active !== false && (await bcrypt.compare(password, user.passwordHash || ''));
-  if (!ok) return json(res, 401, { error: 'Invalid username or password' });
+
+  // Passwordless accounts (joint-invite members) carry no passwordHash — the
+  // emailed one-time code is their only factor, so we skip the password check
+  // for them. Everyone else must present a matching password.
+  const passwordless = !!user && user.active !== false && (user.passwordless === true || !user.passwordHash);
+  if (!passwordless) {
+    if (!password) return json(res, 400, { error: 'Username and password are required' });
+    // Constant-ish response regardless of which check fails, to avoid user enumeration.
+    const ok = user && user.active !== false && (await bcrypt.compare(password, user.passwordHash || ''));
+    if (!ok) return json(res, 401, { error: 'Invalid username or password' });
+  }
+
+  // Passwordless accounts MUST verify a code and MUST have an email — fail closed
+  // so an account can never sign in with no factor at all.
+  if (passwordless && !user.email) {
+    return json(res, 403, { error: 'This account cannot sign in yet. Please contact support.' });
+  }
 
   // Step-up: if this account must verify a one-time code (and has an email to
   // receive it), don't create a session yet — email a code and ask for it.
   const authSettings = await getAuthSettings();
-  if (otpRequiredFor(user, authSettings) && user.email) {
+  if ((passwordless || otpRequiredFor(user, authSettings)) && user.email) {
     const { challengeId, code, ttlMin } = await createChallenge(user, 'login', authSettings);
     await sendCode(user, 'login', code, ttlMin); // non-fatal
     return json(res, 200, {

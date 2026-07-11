@@ -498,11 +498,21 @@
           '<div>' + jointBadge(r.status) + ' <b>' + esc(r.applicantName || '(not yet identified)') + '</b> <span class="muted">' + esc(r.spouseEmail || '') + '</span></div>' +
           '<div class="appr-meta">Joining ' + esc(r.primaryName || '') + ' · ' + esc(fmtDate(r.submittedAt || r.createdAt)) + (r.hasDocs ? ' · docs uploaded' : '') + '</div>' +
         '</div>' +
-        '<div class="appr-actions"><button class="btn btn-light joint-review" data-id="' + esc(r.id) + '">Review</button></div>' +
+        '<div class="appr-actions">' +
+          '<button class="btn btn-light btn-sm joint-copy" data-link="' + esc(r.link || '') + '"><i class="fas fa-link"></i> Copy link</button> ' +
+          '<button class="btn btn-light joint-review" data-id="' + esc(r.id) + '">Review</button>' +
+        '</div>' +
       '</div>';
     }).join('');
     Array.prototype.forEach.call(box.querySelectorAll('.joint-review'), function (b) {
       b.addEventListener('click', function () { openJointReview(b.getAttribute('data-id')); });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('.joint-copy'), function (b) {
+      b.addEventListener('click', function () {
+        var link = b.getAttribute('data-link');
+        if (!link) { toast('No link available for this invite', true); return; }
+        copyText(link).then(function () { toast('Invite link copied'); }, function () { toast('Could not copy link', true); });
+      });
     });
   }
   async function loadJointRequests() {
@@ -548,16 +558,18 @@
         '<h3 style="margin:0;">Joint request ' + jointBadge(inv.status) + '</h3>' +
         '<button class="btn btn-light btn-sm" id="joint-modal-close"><i class="fas fa-times"></i></button>' +
       '</div>' +
-      '<div class="muted" style="margin-bottom:14px;">Joining <b>' + esc(inv.primaryName || '') + '</b>&rsquo;s account · invited ' + esc(fmtDate(inv.createdAt)) + '</div>' +
+      '<div class="muted" style="margin-bottom:10px;">Joining <b>' + esc(inv.primaryName || '') + '</b>&rsquo;s account · invited ' + esc(fmtDate(inv.createdAt)) + '</div>' +
+      (inv.link
+        ? '<div class="row-flex" style="gap:8px;margin-bottom:14px;">' +
+            '<input id="joint-link-input" type="text" readonly value="' + esc(inv.link) + '" style="flex:1;height:34px;padding:0 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-size:12px;background:var(--card);">' +
+            '<button class="btn btn-light btn-sm" id="joint-copy-link"><i class="fas fa-link"></i> Copy</button>' +
+          '</div>'
+        : '') +
 
       '<div class="section-title">Applicant</div>' +
       '<div class="grid2">' +
         '<div class="field"><label>Full name</label><div>' + esc(a.fullName || '—') + '</div></div>' +
         '<div class="field"><label>Date of birth</label><div>' + esc(a.dob || '—') + '</div></div>' +
-      '</div>' +
-      '<div class="grid2">' +
-        '<div class="field"><label>Phone</label><div>' + esc(a.phone || '—') + '</div></div>' +
-        '<div class="field"><label>Address</label><div>' + esc(a.address || '—') + '</div></div>' +
       '</div>' +
       '<div class="grid2">' +
         '<div class="field"><label>Login username</label><div>' + esc((inv.login && inv.login.username) || '—') + '</div></div>' +
@@ -566,10 +578,8 @@
 
       '<div class="section-title">Account(s) being joined</div>' + accts +
 
-      '<div class="section-title">Identification &amp; statement</div>' +
-      docBlock('ID front', inv.docs && inv.docs.idFront) +
-      docBlock('ID back', inv.docs && inv.docs.idBack) +
-      docBlock('Bank statement', inv.docs && inv.docs.statement) +
+      '<div class="section-title">Identification</div>' +
+      docBlock('Photo ID', inv.docs && inv.docs.idFront) +
 
       (inv.rejectReason
         ? '<div class="section-title">Rejection reason</div><div class="muted">' + esc(inv.rejectReason) + '</div>'
@@ -587,6 +597,9 @@
 
     el('joint-modal-body').innerHTML = body;
     el('joint-modal-close').addEventListener('click', closeJointModal);
+    if (el('joint-copy-link')) el('joint-copy-link').addEventListener('click', function () {
+      copyText(inv.link).then(function () { toast('Invite link copied'); }, function () { toast('Could not copy link', true); });
+    });
     if (el('joint-approve')) el('joint-approve').addEventListener('click', function () { actOnJoint(inv.id, 'approve'); });
     if (el('joint-reject')) el('joint-reject').addEventListener('click', function () { actOnJoint(inv.id, 'reject'); });
   }

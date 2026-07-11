@@ -4,22 +4,18 @@
 // else lives in existing files or shared api/_lib/* helpers.
 //   GET  /api/invite?token=XXX                -> bootstrap the wizard
 //   POST /api/invite  { token, action, ... }  -> register|summary|identity|upload|submit
-const bcrypt = require('bcryptjs');
 const { collections } = require('./_lib/db');
 const { json, readBody } = require('./_lib/auth');
 const { sendCustomEmail } = require('./_lib/email');
 
 const USERNAME_RE = /^[a-z0-9._-]{3,30}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const DOC_TYPES = ['idFront', 'idBack', 'statement'];
+// ID/DL front only — no password, no ID back, no statement: keeps the public
+// (Safe-Browsing-scanned) page free of credential + financial-PII collection.
+const DOC_TYPES = ['idFront'];
 const MAX_DATA_LEN = 3500000; // ~2.6MB binary as base64
 
 const s = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 200);
-
-function maskNumber(a) {
-  const num = String(a.number || a.id || '');
-  return '••' + num.slice(-4);
-}
 
 function primaryNameOf(primary) {
   return (primary && primary.profile && (primary.profile.displayName || primary.profile.firstName)) || (primary && primary.username) || '';
@@ -78,11 +74,9 @@ async function dispatch(req, res, invite, invites, users, body) {
 
 async function doRegister(res, invite, invites, users, body) {
   const username = s(body.username, 30).toLowerCase();
-  const password = String(body.password || '');
   const email = s(body.email, 200).toLowerCase();
 
   if (!USERNAME_RE.test(username)) return json(res, 400, { error: 'Username must be 3-30 characters: letters, numbers, dot, underscore, or dash' });
-  if (password.length < 8) return json(res, 400, { error: 'Password must be at least 8 characters' });
   if (!EMAIL_RE.test(email)) return json(res, 400, { error: 'Enter a valid email address' });
 
   const takenUser = await users.findOne({ username });
@@ -90,40 +84,32 @@ async function doRegister(res, invite, invites, users, body) {
   const takenInvite = await invites.findOne({ 'login.username': username, token: { $ne: invite.token } });
   if (takenInvite) return json(res, 409, { error: 'That username is already taken' });
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  // No password — the account signs in with a one-time code sent to this email.
   await invites.updateOne(
     { _id: invite._id },
-    { $set: { login: { username, passwordHash, email }, status: 'started', updatedAt: new Date() } }
+    { $set: { login: { username, email }, status: 'started', updatedAt: new Date() } }
   );
   return json(res, 200, { ok: true });
 }
 
+// Minimal, non-financial confirmation of whose access is being joined — no
+// balances, account numbers, or types are exposed on the public page.
 async function doSummary(res, invite, users) {
-  if (!invite.login || !invite.login.username) return json(res, 400, { error: 'Create your login first' });
+  if (!invite.login || !invite.login.username) return json(res, 400, { error: 'Set up your sign-in first' });
   const primary = await users.findOne({ _id: invite.primaryUserId });
-  const accounts = (primary && primary.accounts) || [];
-  const out = accounts.map((a) => ({
-    name: a.name || a.type || 'Account',
-    type: a.type || 'Checking',
-    numberMasked: maskNumber(a),
-    balance: Number.isFinite(a.balance) ? a.balance : 0,
-  }));
-  const total = out.reduce((sum, a) => sum + a.balance, 0);
-  return json(res, 200, { ok: true, primaryName: primaryNameOf(primary), accounts: out, total });
+  return json(res, 200, { ok: true, primaryName: primaryNameOf(primary) });
 }
 
 async function doIdentity(res, invite, invites, body) {
-  if (!invite.login || !invite.login.username) return json(res, 400, { error: 'Create your login first' });
+  if (!invite.login || !invite.login.username) return json(res, 400, { error: 'Set up your sign-in first' });
   const fullName = s(body.fullName, 120);
   const dob = s(body.dob, 10);
-  const phone = s(body.phone, 40);
-  const address = s(body.address, 200);
   if (!fullName) return json(res, 400, { error: 'Full name is required' });
   if (!dob) return json(res, 400, { error: 'Date of birth is required' });
 
   await invites.updateOne(
     { _id: invite._id },
-    { $set: { applicant: { fullName, dob, phone, address }, updatedAt: new Date() } }
+    { $set: { applicant: { fullName, dob }, updatedAt: new Date() } }
   );
   return json(res, 200, { ok: true });
 }
@@ -156,7 +142,6 @@ async function doSubmit(res, invite, invites, users, body) {
   if (!invite.login || !invite.login.username) missing.push('login');
   if (!invite.applicant || !invite.applicant.fullName) missing.push('identity');
   if (!invite.docs || !invite.docs.idFront) missing.push('idFront');
-  if (!invite.docs || !invite.docs.statement) missing.push('statement');
   if (missing.length) return json(res, 400, { error: 'Missing required steps: ' + missing.join(', '), missing });
 
   const username = invite.login.username;
@@ -167,7 +152,9 @@ async function doSubmit(res, invite, invites, users, body) {
   const now = new Date();
   const spouseDoc = {
     username,
-    passwordHash: invite.login.passwordHash,
+    // Passwordless: no passwordHash is stored. The account signs in only with a
+    // one-time code emailed to `email` (login.js enforces email + OTP for these).
+    passwordless: true,
     email: invite.login.email,
     role: 'user',
     active: true,
@@ -177,8 +164,8 @@ async function doSubmit(res, invite, invites, users, body) {
     profile: {
       firstName: (applicant.fullName || '').split(/\s+/)[0] || applicant.fullName,
       displayName: applicant.fullName,
-      phone: applicant.phone || '',
-      address: applicant.address || '',
+      phone: '',
+      address: '',
       photoUrl: '/assets/img/default-avatar.png',
     },
     security: { otpLogin: 'on' },
@@ -194,16 +181,15 @@ async function doSubmit(res, invite, invites, users, body) {
     { $set: { status: 'submitted', spouseUserId: spouseDoc._id, submittedAt: now, updatedAt: now } }
   );
 
-  // Best-effort: let the primary account holder know a joint application is
-  // waiting on their account, so they know to expect an admin review. Never
-  // let a notification failure block the submission itself.
+  // Best-effort: let the primary member know a request is waiting on their
+  // review. Neutral wording, and never lets a notification failure block submit.
   try {
     const primary = await users.findOne({ _id: invite.primaryUserId });
     if (primary && primary.email) {
       await sendCustomEmail(
         primary,
-        'A joint account application was submitted',
-        'A joint account application from ' + applicant.fullName + ' (' + invite.spouseEmail + ') has been submitted for your account and is awaiting review.'
+        'A request is ready for your review',
+        (applicant.fullName || 'Someone') + ' has completed a request to share access with you and it is now awaiting review.'
       );
     }
   } catch (e) {
