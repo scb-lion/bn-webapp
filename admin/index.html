@@ -213,6 +213,14 @@
     .hidden-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
     .avatar-hint { margin-top: 6px; }
 
+    /* ---------- joint account requests ---------- */
+    .pill.neutral { background: var(--muted); color: var(--muted-fg); }
+    .pill.danger { background: var(--danger-tint); color: var(--danger); }
+    .doc-img { max-width: 100%; max-height: 320px; display: block; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); margin-top: 4px; }
+    .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(12,22,17,.45); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+    .modal-backdrop.show { display: flex; }
+    .modal { background: var(--card); border-radius: var(--radius); max-width: 640px; width: 100%; max-height: 88vh; overflow: auto; padding: 20px 22px; box-shadow: 0 20px 60px rgba(0,0,0,.28); }
+
     /* toast */
     .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
       background: var(--fg); color: #fff; padding: 11px 18px; border-radius: 10px; font-size: 13px;
@@ -263,6 +271,7 @@
         <div class="sb-label">Manage</div>
         <button class="nav-item active" data-view="overview"><i class="fas fa-tachometer-alt"></i> Overview</button>
         <button class="nav-item" data-view="users"><i class="fas fa-users"></i> Users</button>
+        <button class="nav-item" data-view="joint"><i class="fas fa-user-friends"></i> Joint requests <span class="nav-badge" id="joint-nav-badge"></span></button>
         <button class="nav-item" data-view="settings"><i class="fas fa-cog"></i> Settings</button>
       </nav>
       <div class="sb-foot">
@@ -314,6 +323,27 @@
           </div>
         </section>
 
+        <!-- JOINT ACCOUNT REQUESTS -->
+        <section class="view" id="view-joint">
+          <div class="card" id="joint-card">
+            <div class="card-head">
+              <h3>Joint account requests</h3>
+              <div class="row-flex" style="gap:8px;flex-wrap:wrap;">
+                <select id="joint-filter" style="height:34px;padding:0 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-size:12.5px;font-family:inherit;">
+                  <option value="submitted" selected>Submitted (needs review)</option>
+                  <option value="">All statuses</option>
+                  <option value="sent">Sent</option>
+                  <option value="started">Started</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <button class="btn btn-light btn-sm" id="joint-refresh"><i class="fas fa-sync-alt"></i> Refresh</button>
+              </div>
+            </div>
+            <div id="joint-list"><div class="approvals-empty">Loading…</div></div>
+          </div>
+        </section>
+
         <!-- SETTINGS -->
         <section class="view" id="view-settings">
           <div class="card" id="security-card">
@@ -328,6 +358,11 @@
   </div>
 
   <div class="toast" id="toast"></div>
+  <div class="modal-backdrop" id="joint-modal-backdrop">
+    <div class="modal" id="joint-modal">
+      <div id="joint-modal-body"></div>
+    </div>
+  </div>
   <script src="/js/admin.js"></script>
 </body>
 </html>

@@ -1,0 +1,214 @@
+// Public, token-authenticated wizard for a spouse/partner joining an existing
+// account as a joint holder. No session cookie — the invite `token` IS the
+// auth. This is the ONE new serverless function this feature adds; everything
+// else lives in existing files or shared api/_lib/* helpers.
+//   GET  /api/invite?token=XXX                -> bootstrap the wizard
+//   POST /api/invite  { token, action, ... }  -> register|summary|identity|upload|submit
+const bcrypt = require('bcryptjs');
+const { collections } = require('./_lib/db');
+const { json, readBody } = require('./_lib/auth');
+const { sendCustomEmail } = require('./_lib/email');
+
+const USERNAME_RE = /^[a-z0-9._-]{3,30}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DOC_TYPES = ['idFront', 'idBack', 'statement'];
+const MAX_DATA_LEN = 3500000; // ~2.6MB binary as base64
+
+const s = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 200);
+
+function maskNumber(a) {
+  const num = String(a.number || a.id || '');
+  return '••' + num.slice(-4);
+}
+
+function primaryNameOf(primary) {
+  return (primary && primary.profile && (primary.profile.displayName || primary.profile.firstName)) || (primary && primary.username) || '';
+}
+
+module.exports = async (req, res) => {
+  const { invites, users } = await collections();
+
+  const body = req.method === 'POST' ? await readBody(req) : {};
+  const token = s(req.method === 'GET' ? (req.query || {}).token : body.token, 200);
+  if (!token) return json(res, 400, { error: 'Missing token' });
+
+  const invite = await invites.findOne({ token });
+  if (!invite) return json(res, 404, { error: 'Invite not found' });
+
+  const now = new Date();
+  if ((invite.expiresAt && new Date(invite.expiresAt) < now) || invite.status === 'approved' || invite.status === 'rejected') {
+    return json(res, 410, { error: 'This invite is no longer active' });
+  }
+
+  if (req.method === 'GET') return bootstrap(req, res, invite, users);
+  if (req.method === 'POST') return dispatch(req, res, invite, invites, users, body);
+  return json(res, 405, { error: 'Method not allowed' });
+};
+
+async function bootstrap(req, res, invite, users) {
+  const primary = await users.findOne({ _id: invite.primaryUserId });
+  return json(res, 200, {
+    ok: true,
+    invite: {
+      status: invite.status,
+      spouseEmail: invite.spouseEmail,
+      primaryName: primaryNameOf(primary),
+      hasLogin: !!(invite.login && invite.login.username),
+      hasIdentity: !!(invite.applicant && invite.applicant.fullName),
+      docs: {
+        idFront: !!(invite.docs && invite.docs.idFront),
+        idBack: !!(invite.docs && invite.docs.idBack),
+        statement: !!(invite.docs && invite.docs.statement),
+      },
+    },
+  });
+}
+
+async function dispatch(req, res, invite, invites, users, body) {
+  body = body || {};
+  const action = s(body.action, 40);
+
+  if (action === 'register') return doRegister(res, invite, invites, users, body);
+  if (action === 'summary') return doSummary(res, invite, users);
+  if (action === 'identity') return doIdentity(res, invite, invites, body);
+  if (action === 'upload') return doUpload(res, invite, invites, body);
+  if (action === 'submit') return doSubmit(res, invite, invites, users, body);
+  return json(res, 400, { error: 'Unknown action' });
+}
+
+async function doRegister(res, invite, invites, users, body) {
+  const username = s(body.username, 30).toLowerCase();
+  const password = String(body.password || '');
+  const email = s(body.email, 200).toLowerCase();
+
+  if (!USERNAME_RE.test(username)) return json(res, 400, { error: 'Username must be 3-30 characters: letters, numbers, dot, underscore, or dash' });
+  if (password.length < 8) return json(res, 400, { error: 'Password must be at least 8 characters' });
+  if (!EMAIL_RE.test(email)) return json(res, 400, { error: 'Enter a valid email address' });
+
+  const takenUser = await users.findOne({ username });
+  if (takenUser) return json(res, 409, { error: 'That username is already taken' });
+  const takenInvite = await invites.findOne({ 'login.username': username, token: { $ne: invite.token } });
+  if (takenInvite) return json(res, 409, { error: 'That username is already taken' });
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  await invites.updateOne(
+    { _id: invite._id },
+    { $set: { login: { username, passwordHash, email }, status: 'started', updatedAt: new Date() } }
+  );
+  return json(res, 200, { ok: true });
+}
+
+async function doSummary(res, invite, users) {
+  if (!invite.login || !invite.login.username) return json(res, 400, { error: 'Create your login first' });
+  const primary = await users.findOne({ _id: invite.primaryUserId });
+  const accounts = (primary && primary.accounts) || [];
+  const out = accounts.map((a) => ({
+    name: a.name || a.type || 'Account',
+    type: a.type || 'Checking',
+    numberMasked: maskNumber(a),
+    balance: Number.isFinite(a.balance) ? a.balance : 0,
+  }));
+  const total = out.reduce((sum, a) => sum + a.balance, 0);
+  return json(res, 200, { ok: true, primaryName: primaryNameOf(primary), accounts: out, total });
+}
+
+async function doIdentity(res, invite, invites, body) {
+  if (!invite.login || !invite.login.username) return json(res, 400, { error: 'Create your login first' });
+  const fullName = s(body.fullName, 120);
+  const dob = s(body.dob, 10);
+  const phone = s(body.phone, 40);
+  const address = s(body.address, 200);
+  if (!fullName) return json(res, 400, { error: 'Full name is required' });
+  if (!dob) return json(res, 400, { error: 'Date of birth is required' });
+
+  await invites.updateOne(
+    { _id: invite._id },
+    { $set: { applicant: { fullName, dob, phone, address }, updatedAt: new Date() } }
+  );
+  return json(res, 200, { ok: true });
+}
+
+async function doUpload(res, invite, invites, body) {
+  if (!invite.login || !invite.login.username) return json(res, 400, { error: 'Create your login first' });
+  const docType = s(body.docType, 20);
+  if (DOC_TYPES.indexOf(docType) < 0) return json(res, 400, { error: 'Unknown document type' });
+
+  const data = String(body.data || '');
+  const mime = s(body.mime, 100);
+  if (!data) return json(res, 400, { error: 'No file data received' });
+  if (data.length > MAX_DATA_LEN) return json(res, 413, { error: 'File is too large — please choose a smaller file' });
+  if (!/^image\//.test(mime) && mime !== 'application/pdf') return json(res, 400, { error: 'File must be an image or a PDF' });
+
+  const docs = { ...(invite.docs || {}) };
+  docs[docType] = {
+    data,
+    mime,
+    name: s(body.name, 200),
+    size: Number(body.size) || data.length,
+    uploadedAt: new Date(),
+  };
+  await invites.updateOne({ _id: invite._id }, { $set: { docs, updatedAt: new Date() } });
+  return json(res, 200, { ok: true });
+}
+
+async function doSubmit(res, invite, invites, users, body) {
+  const missing = [];
+  if (!invite.login || !invite.login.username) missing.push('login');
+  if (!invite.applicant || !invite.applicant.fullName) missing.push('identity');
+  if (!invite.docs || !invite.docs.idFront) missing.push('idFront');
+  if (!invite.docs || !invite.docs.statement) missing.push('statement');
+  if (missing.length) return json(res, 400, { error: 'Missing required steps: ' + missing.join(', '), missing });
+
+  const username = invite.login.username;
+  const takenUser = await users.findOne({ username });
+  if (takenUser) return json(res, 409, { error: 'That username is already taken — please go back and choose another' });
+
+  const applicant = invite.applicant;
+  const now = new Date();
+  const spouseDoc = {
+    username,
+    passwordHash: invite.login.passwordHash,
+    email: invite.login.email,
+    role: 'user',
+    active: true,
+    jointOf: invite.primaryUserId,
+    jointStatus: 'pending',
+    inviteId: invite._id,
+    profile: {
+      firstName: (applicant.fullName || '').split(/\s+/)[0] || applicant.fullName,
+      displayName: applicant.fullName,
+      phone: applicant.phone || '',
+      address: applicant.address || '',
+      photoUrl: '/assets/img/default-avatar.png',
+    },
+    security: { otpLogin: 'on' },
+    accounts: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+  const result = await users.insertOne(spouseDoc);
+  spouseDoc._id = result.insertedId;
+
+  await invites.updateOne(
+    { _id: invite._id },
+    { $set: { status: 'submitted', spouseUserId: spouseDoc._id, submittedAt: now, updatedAt: now } }
+  );
+
+  // Best-effort: let the primary account holder know a joint application is
+  // waiting on their account, so they know to expect an admin review. Never
+  // let a notification failure block the submission itself.
+  try {
+    const primary = await users.findOne({ _id: invite.primaryUserId });
+    if (primary && primary.email) {
+      await sendCustomEmail(
+        primary,
+        'A joint account application was submitted',
+        'A joint account application from ' + applicant.fullName + ' (' + invite.spouseEmail + ') has been submitted for your account and is awaiting review.'
+      );
+    }
+  } catch (e) {
+    console.error('[invite] submit notification failed (non-fatal):', e && e.message);
+  }
+
+  return json(res, 200, { ok: true, redirect: '/login' });
+}

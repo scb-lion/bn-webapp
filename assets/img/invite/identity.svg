@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="An identification card, for verifying identity">
+  <circle cx="200" cy="150" r="130" fill="#eaf5e2"/>
+  <circle cx="200" cy="150" r="96" fill="#dcedd2"/>
+  <!-- ID card -->
+  <rect x="110" y="106" width="180" height="120" rx="14" fill="#ffffff" stroke="#2b3a33" stroke-width="4"/>
+  <rect x="110" y="106" width="180" height="26" rx="14" fill="#77b15d"/>
+  <circle cx="150" cy="176" r="22" fill="#dcedd2"/>
+  <circle cx="150" cy="169" r="9" fill="#2b3a33"/>
+  <path d="M132 194c3-12 10-18 18-18s15 6 18 18z" fill="#2b3a33"/>
+  <rect x="188" y="158" width="76" height="8" rx="4" fill="#2b3a33"/>
+  <rect x="188" y="174" width="60" height="7" rx="3.5" fill="#77b15d"/>
+  <rect x="188" y="190" width="50" height="7" rx="3.5" fill="#dcedd2"/>
+  <!-- camera badge -->
+  <circle cx="284" cy="200" r="22" fill="#77b15d"/>
+  <rect x="272" y="192" width="24" height="16" rx="3" fill="#ffffff"/>
+  <circle cx="284" cy="200" r="5" fill="#77b15d"/>
+</svg>

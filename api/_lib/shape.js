@@ -26,6 +26,9 @@ function publicUser(user) {
       otpLogin: (user.security && user.security.otpLogin) || 'default', // 'default' | 'on' | 'off'
     },
     createdAt: user.createdAt || null,
+    joint: user.jointOf
+      ? { status: user.jointStatus || 'pending', primaryName: '' } // primaryName filled by me.js
+      : null,
   };
 }
 

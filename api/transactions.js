@@ -15,7 +15,7 @@
 //   deposit  -> mobile check deposit          (single credit leg, incoming)
 const { ObjectId } = require('mongodb');
 const { collections } = require('./_lib/db');
-const { requireAuth, json, readBody } = require('./_lib/auth');
+const { requireAuth, resolveAccountOwner, json, readBody } = require('./_lib/auth');
 const { publicTxn } = require('./_lib/shape');
 const { toCents, genRef, genTransferId } = require('./_lib/util');
 const { sendEventEmail } = require('./_lib/email');
@@ -51,31 +51,32 @@ function counterpartyFor(kind, meta) {
 module.exports = async (req, res) => {
   const user = await requireAuth(req, res);
   if (!user) return;
+  const owner = await resolveAccountOwner(user);
 
-  if (req.method === 'GET') return listTransactions(req, res, user);
-  if (req.method === 'POST') return createTransfer(req, res, user);
+  if (req.method === 'GET') return listTransactions(req, res, owner);
+  if (req.method === 'POST') return createTransfer(req, res, user, owner);
   return json(res, 405, { error: 'Method not allowed' });
 };
 
-async function listTransactions(req, res, user) {
+async function listTransactions(req, res, owner) {
   const { transactions } = await collections();
   const { id, accountId } = req.query || {};
 
   if (id) {
     let _id;
     try { _id = new ObjectId(String(id)); } catch { return json(res, 400, { error: 'Bad id' }); }
-    const txn = await transactions.findOne({ _id, userId: user._id });
+    const txn = await transactions.findOne({ _id, userId: owner._id });
     if (!txn) return json(res, 404, { error: 'Not found' });
     return json(res, 200, { transaction: publicTxn(txn) });
   }
 
-  const query = { userId: user._id };
+  const query = { userId: owner._id };
   if (accountId) query.accountId = String(accountId);
   const list = await transactions.find(query).sort({ date: -1 }).limit(200).toArray();
   return json(res, 200, { transactions: list.map(publicTxn) });
 }
 
-async function createTransfer(req, res, user) {
+async function createTransfer(req, res, user, owner) {
   const body = await readBody(req);
   const kind = s(body.kind).toLowerCase();
   if (!KINDS.includes(kind)) return json(res, 400, { error: 'Unknown transfer kind' });
@@ -83,7 +84,7 @@ async function createTransfer(req, res, user) {
   const amount = Math.abs(toCents(body.amount));
   if (!amount || amount <= 0) return json(res, 400, { error: 'Enter a valid amount greater than $0.00' });
 
-  const accounts = user.accounts || [];
+  const accounts = owner.accounts || [];
   const findAcct = (id) => accounts.find((a) => String(a.id) === String(id));
 
   // Resolve the account this transfer touches on our side.
@@ -98,7 +99,7 @@ async function createTransfer(req, res, user) {
   const now = new Date();
 
   const leg = (accountId, signedAmount, desc, counterparty) => ({
-    userId: user._id,
+    userId: owner._id,
     accountId: String(accountId),
     ref: genRef(),
     date: now,

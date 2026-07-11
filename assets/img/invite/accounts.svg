@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="A wallet with cards, representing the joint account summary">
+  <circle cx="200" cy="150" r="130" fill="#eaf5e2"/>
+  <circle cx="200" cy="150" r="96" fill="#dcedd2"/>
+  <!-- cards stack -->
+  <rect x="118" y="150" width="150" height="92" rx="12" fill="#2b3a33"/>
+  <rect x="132" y="132" width="150" height="92" rx="12" fill="#77b15d"/>
+  <rect x="132" y="150" width="150" height="18" fill="#2b3a33"/>
+  <rect x="146" y="196" width="46" height="10" rx="5" fill="#ffffff"/>
+  <rect x="146" y="182" width="30" height="8" rx="4" fill="#eaf5e2"/>
+  <!-- dollar badge -->
+  <circle cx="272" cy="112" r="24" fill="#ffffff"/>
+  <text x="272" y="121" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#77b15d" text-anchor="middle">$</text>
+</svg>

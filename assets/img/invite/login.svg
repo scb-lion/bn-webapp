@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="A phone screen with a secure lock, for creating a login">
+  <circle cx="200" cy="150" r="130" fill="#eaf5e2"/>
+  <circle cx="200" cy="150" r="96" fill="#dcedd2"/>
+  <!-- phone -->
+  <rect x="146" y="70" width="108" height="176" rx="16" fill="#2b3a33"/>
+  <rect x="156" y="86" width="88" height="140" rx="4" fill="#ffffff"/>
+  <circle cx="200" cy="236" r="5" fill="#ffffff"/>
+  <!-- lock -->
+  <rect x="176" y="146" width="48" height="38" rx="8" fill="#77b15d"/>
+  <path d="M184 146v-14a16 16 0 0 1 32 0v14" fill="none" stroke="#77b15d" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="200" cy="163" r="6" fill="#ffffff"/>
+  <rect x="197" y="163" width="6" height="12" rx="3" fill="#ffffff"/>
+  <!-- shield check accent -->
+  <circle cx="272" cy="96" r="20" fill="#ffffff"/>
+  <path d="M264 96l6 6 12-12" fill="none" stroke="#77b15d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

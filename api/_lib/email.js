@@ -363,6 +363,53 @@ function buildPasswordChanged(user, d) {
   };
 }
 
+// Invite a spouse/partner to become a joint holder. `invite` is the invites doc
+// (unused for now — kept in the signature per the shared build contract in case
+// a future revision wants invite-specific copy); `link` is the personal,
+// token-bearing join URL; `primaryName` is the account holder's display name.
+function buildJointInvite(invite, link, primaryName) {
+  const name = esc(primaryName || 'The primary account holder');
+  return {
+    subject: 'You’ve been invited to join an account',
+    content: {
+      preheader: 'You’ve been invited to join an account.',
+      heading: 'You’re invited',
+      intro: 'Hi,<br>' + name + ' has invited you to become a joint holder on their account. Use the link below to get started — it’s personal to you.',
+      bodyHtml: '<p style="margin:16px 0 0;font-size:13px;line-height:20px;color:#3f4a45;word-break:break-all;"><a href="' + esc(link) + '" style="color:' + BRAND.green + ';font-weight:700;">' + esc(link) + '</a></p>',
+      cta: { label: 'Continue', url: link },
+      footerNote: 'This link expires in 7 days. If you weren’t expecting this invite, you can ignore this email.',
+    },
+  };
+}
+
+// Notice that a joint application was approved.
+function buildJointApproved(user, d) {
+  return {
+    subject: 'Your joint account access is approved',
+    content: {
+      preheader: 'Your joint account access has been approved.',
+      heading: 'You’re approved',
+      intro: greeting(user) + '<br>Your joint account application has been approved. You can sign in now to view and manage the account.',
+      footerNote: 'If you have any questions, we’re here to help.',
+    },
+  };
+}
+
+// Notice that a joint application was rejected.
+function buildJointRejected(user, d) {
+  const reason = String((d && d.reason) || '').trim();
+  return {
+    subject: 'An update on your joint account application',
+    content: {
+      preheader: 'An update on your joint account application.',
+      heading: 'Application not approved',
+      intro: greeting(user) + '<br>We weren’t able to approve your joint account application.',
+      rows: reason ? [{ label: 'Reason', value: reason }] : [],
+      footerNote: 'If you have any questions, please get in touch with us.',
+    },
+  };
+}
+
 const BUILDERS = {
   transferSubmitted: buildTransferSubmitted,
   transferApproved: buildTransferApproved,
@@ -523,6 +570,40 @@ async function sendPasswordChanged(user) {
   }
 }
 
+// Admin: send the invite link to the spouse/partner being invited. Non-fatal —
+// the invite still gets created even if the send fails.
+async function sendJointInvite(toEmail, link, primaryName) {
+  const settings = await getEmailSettings();
+  const built = buildJointInvite(null, link, primaryName);
+  return await sendRaw(settings, { to: toEmail, subject: built.subject, content: built.content });
+}
+
+// Notify the spouse their joint application was approved (best-effort, never throws).
+async function sendJointApproved(user) {
+  try {
+    if (!user || !user.email) return { ok: false, skipped: 'no-email' };
+    const settings = await getEmailSettings();
+    const built = buildJointApproved(user, {});
+    return await sendRaw(settings, { to: user.email, subject: built.subject, content: built.content });
+  } catch (e) {
+    console.error('[email] sendJointApproved failed (non-fatal):', e && e.message);
+    return { ok: false, error: e && e.message };
+  }
+}
+
+// Notify the spouse their joint application was rejected (best-effort, never throws).
+async function sendJointRejected(user, reason) {
+  try {
+    if (!user || !user.email) return { ok: false, skipped: 'no-email' };
+    const settings = await getEmailSettings();
+    const built = buildJointRejected(user, { reason: reason });
+    return await sendRaw(settings, { to: user.email, subject: built.subject, content: built.content });
+  } catch (e) {
+    console.error('[email] sendJointRejected failed (non-fatal):', e && e.message);
+    return { ok: false, error: e && e.message };
+  }
+}
+
 // Which transport sendRaw will use for these settings, and the From address it
 // sends with — so the test email body matches the real sender (not the old
 // hardcoded SMTP/Gmail wording).
@@ -564,6 +645,12 @@ module.exports = {
   sendTestEmail,
   sendCode,
   sendPasswordChanged,
+  buildJointInvite,
+  buildJointApproved,
+  buildJointRejected,
+  sendJointInvite,
+  sendJointApproved,
+  sendJointRejected,
   renderEmail, // exported for local preview/testing
   builders: BUILDERS, // exported for local preview/testing
 };

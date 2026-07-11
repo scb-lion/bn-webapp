@@ -269,15 +269,37 @@
     dots.forEach(function (d, i) { d.addEventListener('click', function () { go(i); }); });
   }
 
+  /* ---------- joint-holder gate: pending/rejected spouse sees a notice instead of live data ---------- */
+  function jointNoticeCard(joint) {
+    var rejected = joint.status === 'rejected';
+    var icon = rejected ? 'fa-times-circle' : 'fa-clock';
+    var fg = rejected ? '#c0392b' : '#0f6b3b';
+    var bg = rejected ? '#fdeef0' : '#e6f4ea';
+    var title = rejected ? 'Application not approved' : 'Application under review';
+    var msg = rejected
+      ? 'We couldn’t verify your joint application. Please contact support.'
+      : 'Your joint access to ' + esc(joint.primaryName || 'this account') + '’s account is under review. We’ll email you when it’s approved.';
+    return (
+      '<div class="card card-style"><div class="content text-center" style="padding:26px 18px;">' +
+        '<div style="width:60px;height:60px;border-radius:50%;background:' + bg + ';display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">' +
+          '<i class="fas ' + icon + '" style="font-size:26px;color:' + fg + ';"></i></div>' +
+        '<h5 class="font-700 mb-1">' + esc(title) + '</h5>' +
+        '<p class="color-theme font-13 mb-0" style="line-height:19px;">' + msg + '</p>' +
+      '</div></div>'
+    );
+  }
+
   /* ---------- dashboard (fill the skeleton slots in dashboard.html) ---------- */
   function renderDashboard(me, txns) {
     var name = me.profile.firstName || me.profile.displayName || me.username;
     var hi = document.getElementById('dash-hi');
     if (hi) hi.textContent = 'Hi, ' + name;
 
+    var gated = !!(me.joint && me.joint.status !== 'approved');
+
     var total = (me.accounts || []).reduce(function (sum, a) { return sum + (Number(a.balance) || 0); }, 0);
     var totalEl = document.getElementById('dash-total');
-    if (totalEl) totalEl.textContent = '$' + money(total);
+    if (totalEl) totalEl.textContent = gated ? '—' : ('$' + money(total));
 
     var avatar = document.getElementById('dash-avatar');
     if (avatar) {
@@ -286,12 +308,25 @@
     }
 
     var accEl = document.getElementById('dash-accounts');
+    var txEl = document.getElementById('dash-txns');
+
+    if (gated) {
+      if (accEl) {
+        var accWrap = accEl.closest('.mx-3.mb-3') || accEl.parentNode;
+        var accHead = accWrap && accWrap.querySelector('.sec-head');
+        if (accHead) accHead.style.display = 'none';
+        accEl.innerHTML = jointNoticeCard(me.joint);
+      }
+      var txCard = txEl && txEl.closest('.card.card-style');
+      if (txCard) txCard.style.display = 'none';
+      return;
+    }
+
     if (accEl) {
       if (me.accounts.length) { accEl.innerHTML = accountsCarousel(me.accounts); wireCarousel(accEl); }
       else accEl.innerHTML = '<div class="acct-wcard"><div class="aw-name" style="font-size:14px;color:#8a8f8c;">No accounts yet</div><div></div></div>';
     }
 
-    var txEl = document.getElementById('dash-txns');
     if (txEl) {
       txEl.innerHTML = (txns && txns.length)
         ? txns.slice(0, 6).map(txnRow).join('')

@@ -95,6 +95,20 @@ async function requireAuth(req, res) {
   return user;
 }
 
+// If `user` is an APPROVED joint holder, returns the PRIMARY account owner's user
+// doc; otherwise returns `user` unchanged. Use everywhere accounts/transactions
+// are read or written so a joint spouse operates on the shared (primary's) accounts.
+async function resolveAccountOwner(user) {
+  if (!user || !user.jointOf || user.jointStatus !== 'approved') return user;
+  const { users } = await collections();
+  try {
+    const primary = await users.findOne({ _id: new ObjectId(String(user.jointOf)) });
+    return (primary && primary.active !== false) ? primary : user;
+  } catch {
+    return user;
+  }
+}
+
 // Guard: resolves to the user doc if admin, else sends 401/403 and resolves null.
 async function requireAdmin(req, res) {
   const user = await currentUser(req);
@@ -142,6 +156,7 @@ module.exports = {
   currentUser,
   requireAuth,
   requireAdmin,
+  resolveAccountOwner,
   json,
   readBody,
 };

@@ -245,6 +245,7 @@
       zelleSectionHTML(u) +
       '<hr>' +
       '<div class="row-flex" style="gap:10px;"><button class="btn btn-primary" id="e-save">Save changes</button></div>' +
+      jointInviteHTML(u) +
 
       '<div class="section-title">Transactions</div>' +
       '<div class="txn-add">' +
@@ -273,6 +274,7 @@
     el('e-save').addEventListener('click', function () { saveUser(u.id); });
     el('e-delete').addEventListener('click', function () { deleteUser(u.id, u.username); });
     el('t-add').addEventListener('click', function () { addTxn(u.id); });
+    if (el('e-joint-invite-btn')) wireJointInvite(u.id);
     renderTxns(txns);
   }
 
@@ -422,6 +424,182 @@
       await loadApprovals();
       await loadUsers();
       if (state.selectedId) await selectUser(state.selectedId);
+    } catch (e) { toast(e.message, true); if (btn) btn.disabled = false; }
+  }
+
+  /* ---------- joint account invite (from a user's editor) ---------- */
+  function jointInviteHTML(u) {
+    if (u.joint) {
+      return '<div class="section-title">Joint account</div>' +
+        '<div class="muted">This user is a joint holder on <b>' + esc(u.joint.primaryName || 'another account') + '</b> — status: ' + esc(u.joint.status) + '.</div>';
+    }
+    return '<div class="section-title">Joint account</div>' +
+      '<div class="muted" style="margin-bottom:10px;">Invite a spouse or partner to join this member&rsquo;s accounts as a live-linked joint holder.</div>' +
+      '<button type="button" class="btn btn-light" id="e-joint-invite-btn"><i class="fas fa-user-plus"></i> Invite joint holder</button>' +
+      '<div id="e-joint-invite-form" style="display:none;margin-top:10px;">' +
+        field('e-joint-email', 'Spouse / partner email', 'email') +
+        '<div class="row-flex" style="gap:8px;">' +
+          '<button type="button" class="btn btn-primary" id="e-joint-send">Send invite</button>' +
+          '<button type="button" class="btn btn-light" id="e-joint-cancel-invite">Cancel</button>' +
+        '</div>' +
+      '</div>' +
+      '<div id="e-joint-result"></div>';
+  }
+  function wireJointInvite(primaryUserId) {
+    var btn = el('e-joint-invite-btn'), form = el('e-joint-invite-form');
+    btn.addEventListener('click', function () { form.style.display = form.style.display === 'none' ? 'block' : 'none'; });
+    el('e-joint-cancel-invite').addEventListener('click', function () { form.style.display = 'none'; });
+    el('e-joint-send').addEventListener('click', function () { sendJointInvite(primaryUserId); });
+  }
+  async function sendJointInvite(primaryUserId) {
+    var email = el('e-joint-email').value.trim();
+    if (!email) { toast('Enter the spouse/partner email', true); return; }
+    var btn = el('e-joint-send'); btn.disabled = true;
+    try {
+      var data = await api('/api/admin/users?scope=invites', 'POST', { primaryUserId: primaryUserId, spouseEmail: email });
+      var link = data.link || '';
+      el('e-joint-result').innerHTML =
+        '<div style="margin-top:10px;padding:10px 12px;background:var(--muted);border-radius:var(--radius-sm);">' +
+          (data.emailed ? '<span class="pill ok">Email sent</span>' : '<span class="pill warn">Email not sent — share the link manually</span>') +
+          '<div class="row-flex" style="margin-top:8px;gap:8px;">' +
+            '<input id="e-joint-link" type="text" readonly value="' + esc(link) + '" ' +
+              'style="flex:1;height:36px;padding:0 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-size:12.5px;background:var(--card);">' +
+            '<button type="button" class="btn btn-light btn-sm" id="e-joint-copy-link">Copy link</button>' +
+          '</div>' +
+        '</div>';
+      el('e-joint-copy-link').addEventListener('click', function () {
+        copyText(link).then(function () { toast('Link copied'); }, function () { toast('Could not copy link', true); });
+      });
+      el('e-joint-email').value = '';
+      el('e-joint-invite-form').style.display = 'none';
+      toast('Invite sent');
+      loadJointRequests();
+    } catch (e) { toast(e.message, true); } finally { btn.disabled = false; }
+  }
+
+  /* ---------- joint account requests (admin review panel) ---------- */
+  function jointBadge(status) {
+    var cls = { sent: 'pill neutral', started: 'pill neutral', submitted: 'pill warn', approved: 'pill ok', rejected: 'pill danger' }[status] || 'pill neutral';
+    return '<span class="' + cls + '">' + esc(status) + '</span>';
+  }
+  function fmtDate(iso) {
+    return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  }
+  function renderJointList(list, filter) {
+    var box = el('joint-list'), cnt = el('joint-nav-badge');
+    if (cnt && filter === 'submitted') cnt.textContent = list.length ? String(list.length) : '';
+    if (!list.length) { box.innerHTML = '<div class="approvals-empty">No joint account requests.</div>'; return; }
+    box.innerHTML = list.map(function (r) {
+      return '<div class="appr-item">' +
+        '<div class="appr-main">' +
+          '<div>' + jointBadge(r.status) + ' <b>' + esc(r.applicantName || '(not yet identified)') + '</b> <span class="muted">' + esc(r.spouseEmail || '') + '</span></div>' +
+          '<div class="appr-meta">Joining ' + esc(r.primaryName || '') + ' · ' + esc(fmtDate(r.submittedAt || r.createdAt)) + (r.hasDocs ? ' · docs uploaded' : '') + '</div>' +
+        '</div>' +
+        '<div class="appr-actions"><button class="btn btn-light joint-review" data-id="' + esc(r.id) + '">Review</button></div>' +
+      '</div>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('.joint-review'), function (b) {
+      b.addEventListener('click', function () { openJointReview(b.getAttribute('data-id')); });
+    });
+  }
+  async function loadJointRequests() {
+    try {
+      var filterEl = el('joint-filter');
+      var filter = filterEl ? filterEl.value : 'submitted';
+      var url = '/api/admin/users?scope=invites' + (filter ? '&status=' + encodeURIComponent(filter) : '');
+      var data = await api(url);
+      renderJointList(data.invites || [], filter);
+    } catch (e) {
+      if (el('joint-list')) el('joint-list').innerHTML = '<div class="approvals-empty">Could not load joint requests.</div>';
+    }
+  }
+  function closeJointModal() {
+    el('joint-modal-backdrop').classList.remove('show');
+    el('joint-modal-body').innerHTML = '';
+  }
+  async function openJointReview(id) {
+    try {
+      var data = await api('/api/admin/users?scope=invites&id=' + encodeURIComponent(id));
+      renderJointReview(data.invite);
+      el('joint-modal-backdrop').classList.add('show');
+    } catch (e) { toast(e.message, true); }
+  }
+  function docBlock(label, doc) {
+    if (!doc) return '<div class="field"><label>' + esc(label) + '</label><div class="muted">Not provided.</div></div>';
+    var isPdf = (doc.mime || '').indexOf('application/pdf') === 0;
+    return '<div class="field"><label>' + esc(label) + '</label>' +
+      (isPdf
+        ? '<a class="btn btn-light" href="' + esc(doc.data) + '" target="_blank" rel="noopener"><i class="fas fa-file-pdf"></i> View ' + esc(doc.name || 'statement.pdf') + '</a>'
+        : '<img class="doc-img" src="' + esc(doc.data) + '" alt="' + esc(label) + '">') +
+    '</div>';
+  }
+  function renderJointReview(inv) {
+    var a = inv.applicant || {};
+    var accts = (inv.accounts || []).map(function (ac) {
+      return '<div class="appr-item"><div class="appr-main"><div><b>' + esc(ac.name) + '</b> <span class="muted">' + esc(ac.type) + ' · ' + esc(ac.numberMasked) + '</span></div></div>' +
+        '<div class="appr-amt in">' + money(ac.balance) + '</div></div>';
+    }).join('') || '<div class="approvals-empty">No accounts.</div>';
+
+    var body =
+      '<div class="row-flex" style="justify-content:space-between;margin-bottom:6px;">' +
+        '<h3 style="margin:0;">Joint request ' + jointBadge(inv.status) + '</h3>' +
+        '<button class="btn btn-light btn-sm" id="joint-modal-close"><i class="fas fa-times"></i></button>' +
+      '</div>' +
+      '<div class="muted" style="margin-bottom:14px;">Joining <b>' + esc(inv.primaryName || '') + '</b>&rsquo;s account · invited ' + esc(fmtDate(inv.createdAt)) + '</div>' +
+
+      '<div class="section-title">Applicant</div>' +
+      '<div class="grid2">' +
+        '<div class="field"><label>Full name</label><div>' + esc(a.fullName || '—') + '</div></div>' +
+        '<div class="field"><label>Date of birth</label><div>' + esc(a.dob || '—') + '</div></div>' +
+      '</div>' +
+      '<div class="grid2">' +
+        '<div class="field"><label>Phone</label><div>' + esc(a.phone || '—') + '</div></div>' +
+        '<div class="field"><label>Address</label><div>' + esc(a.address || '—') + '</div></div>' +
+      '</div>' +
+      '<div class="grid2">' +
+        '<div class="field"><label>Login username</label><div>' + esc((inv.login && inv.login.username) || '—') + '</div></div>' +
+        '<div class="field"><label>Contact email</label><div>' + esc(inv.spouseEmail || '') + '</div></div>' +
+      '</div>' +
+
+      '<div class="section-title">Account(s) being joined</div>' + accts +
+
+      '<div class="section-title">Identification &amp; statement</div>' +
+      docBlock('ID front', inv.docs && inv.docs.idFront) +
+      docBlock('ID back', inv.docs && inv.docs.idBack) +
+      docBlock('Bank statement', inv.docs && inv.docs.statement) +
+
+      (inv.rejectReason
+        ? '<div class="section-title">Rejection reason</div><div class="muted">' + esc(inv.rejectReason) + '</div>'
+        : '') +
+
+      (inv.status === 'submitted'
+        ? '<hr>' +
+          '<div class="field"><label for="joint-reject-reason">Rejection reason (required to reject)</label>' +
+            '<textarea id="joint-reject-reason" rows="2" placeholder="Explain why this application is being rejected…"></textarea></div>' +
+          '<div class="row-flex" style="gap:10px;">' +
+            '<button class="btn btn-primary" id="joint-approve">Approve</button>' +
+            '<button class="btn btn-danger" id="joint-reject">Reject</button>' +
+          '</div>'
+        : '');
+
+    el('joint-modal-body').innerHTML = body;
+    el('joint-modal-close').addEventListener('click', closeJointModal);
+    if (el('joint-approve')) el('joint-approve').addEventListener('click', function () { actOnJoint(inv.id, 'approve'); });
+    if (el('joint-reject')) el('joint-reject').addEventListener('click', function () { actOnJoint(inv.id, 'reject'); });
+  }
+  async function actOnJoint(id, action) {
+    var reason = '';
+    if (action === 'reject') {
+      reason = (el('joint-reject-reason') && el('joint-reject-reason').value.trim()) || '';
+      if (!reason) { toast('Enter a rejection reason', true); return; }
+    }
+    var btn = el(action === 'approve' ? 'joint-approve' : 'joint-reject');
+    if (btn) btn.disabled = true;
+    try {
+      await api('/api/admin/users?scope=invites&id=' + encodeURIComponent(id), 'POST', { action: action, reason: reason });
+      toast(action === 'approve' ? 'Joint request approved' : 'Joint request rejected');
+      closeJointModal();
+      await loadJointRequests();
     } catch (e) { toast(e.message, true); if (btn) btn.disabled = false; }
   }
 
@@ -743,7 +921,7 @@
   }
 
   /* ---------- view switching + mobile drawer ---------- */
-  var VIEW_TITLES = { overview: 'Overview', users: 'Users', settings: 'Settings' };
+  var VIEW_TITLES = { overview: 'Overview', users: 'Users', joint: 'Joint requests', settings: 'Settings' };
   function closeNav() { el('app').classList.remove('nav-open'); }
   function setView(name) {
     Array.prototype.forEach.call(document.querySelectorAll('.view'), function (v) {
@@ -775,6 +953,12 @@
     el('new-user-btn').addEventListener('click', renderNewUser);
     var refresh = el('approvals-refresh');
     if (refresh) refresh.addEventListener('click', loadApprovals);
+    var jointRefresh = el('joint-refresh');
+    if (jointRefresh) jointRefresh.addEventListener('click', loadJointRequests);
+    var jointFilter = el('joint-filter');
+    if (jointFilter) jointFilter.addEventListener('change', loadJointRequests);
+    var jointBackdrop = el('joint-modal-backdrop');
+    if (jointBackdrop) jointBackdrop.addEventListener('click', function (e) { if (e.target === jointBackdrop) closeJointModal(); });
 
     // sidebar nav + mobile drawer
     Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function (n) {
@@ -785,6 +969,7 @@
 
     await loadUsers();      // populate state.users before the email compose dropdown builds
     loadApprovals();
+    loadJointRequests();
     loadSecurity();
     loadEmail();
   })();

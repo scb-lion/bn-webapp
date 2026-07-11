@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="A large checkmark, confirming the application was submitted successfully">
+  <circle cx="200" cy="150" r="130" fill="#eaf5e2"/>
+  <circle cx="200" cy="150" r="96" fill="#dcedd2"/>
+  <circle cx="200" cy="150" r="66" fill="#77b15d"/>
+  <path d="M170 150l20 20 40-44" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="#77b15d">
+    <circle cx="96" cy="96" r="6"/>
+    <circle cx="308" cy="106" r="5"/>
+    <circle cx="90" cy="206" r="4.5"/>
+    <circle cx="312" cy="200" r="6"/>
+  </g>
+  <g fill="none" stroke="#77b15d" stroke-width="4" stroke-linecap="round">
+    <path d="M120 60l8 8M300 240l8 8M296 66l-8 8"/>
+  </g>
+</svg>

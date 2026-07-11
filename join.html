@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#77b15d">
+  <!-- No brand/PII in metadata: neutral title, no indexing, no referrer (keeps the
+       ?token= out of any Referer header sent to fonts/CDNs or third parties). -->
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Secure invitation</title>
+  <link rel="preconnect" href="https://rsms.me/">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+  <link href="https://cdn.jsdelivr.net/gh/hung1001/font-awesome-pro@4cac1a6/css/all.css" rel="stylesheet" type="text/css">
+  <style>
+    :root {
+      --brand: #77b15d;
+      --brand-dark: #5c9143;
+      --ink: #1e2528;
+      --ink-soft: #5a6560;
+      --line: #e3e9e4;
+      --bg-soft: #f4f8f2;
+      --danger: #c0392b;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: "InterVariable", "Inter", "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg-soft); color: var(--ink);
+      font-size: 15px; line-height: 21px; -webkit-font-smoothing: antialiased;
+      min-height: 100%;
+    }
+    .wrap { max-width: 480px; margin: 0 auto; padding: 18px 16px 40px; min-height: 100%; }
+
+    /* progress */
+    .jv-progress { display: flex; align-items: center; gap: 6px; margin: 6px 0 20px; }
+    .jv-progress-bar { flex: 1; height: 5px; border-radius: 4px; background: var(--line); overflow: hidden; }
+    .jv-progress-fill { height: 100%; background: var(--brand); border-radius: 4px; transition: width .25s ease; }
+    .jv-progress-label { font-size: 12px; color: var(--ink-soft); white-space: nowrap; }
+    .jv-brand { text-align: center; margin-bottom: 14px; }
+    .jv-brand img { height: 40px; }
+
+    /* card */
+    .jv-card {
+      background: #fff; border-radius: 18px; box-shadow: 0 10px 34px rgba(20,40,25,.08);
+      padding: 28px 22px 24px;
+    }
+    .jv-illus { text-align: center; margin-bottom: 6px; }
+    .jv-illus img { width: 168px; max-width: 60%; height: auto; }
+    .jv-title { font-size: 21px; font-weight: 700; text-align: center; margin: 6px 0 4px; }
+    .jv-sub { font-size: 14px; color: var(--ink-soft); text-align: center; margin: 0 0 20px; line-height: 20px; }
+
+    /* form controls */
+    .jv-field { margin-bottom: 14px; }
+    .jv-label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); margin-bottom: 6px; }
+    .jv-input, .jv-select {
+      width: 100%; height: 50px; padding: 0 14px; border: 1px solid #cfd8d2; border-radius: 10px;
+      font-family: inherit; font-size: 15px; color: var(--ink); background: #fff; outline: none;
+      -webkit-appearance: none; appearance: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    textarea.jv-input { height: auto; padding: 12px 14px; resize: vertical; min-height: 70px; }
+    .jv-input:focus, .jv-select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(119,177,93,.16); }
+    .jv-hint { font-size: 12px; color: var(--ink-soft); margin-top: 5px; }
+    .jv-err { display: none; background: #fdecea; color: var(--danger); border-radius: 10px; padding: 10px 12px; font-size: 13px; margin: 0 0 14px; }
+
+    /* buttons */
+    .jv-btn {
+      -webkit-appearance: none; border: none; cursor: pointer; width: 100%;
+      background: var(--brand); color: #fff; font-family: inherit;
+      font-size: 15px; font-weight: 600; line-height: 52px; height: 52px; border-radius: 12px;
+      transition: background-color .2s ease; margin-top: 4px;
+    }
+    .jv-btn:hover { background: var(--brand-dark); }
+    .jv-btn:disabled { opacity: .45; cursor: default; }
+    .jv-btn-ghost {
+      background: transparent; color: var(--ink-soft); border: 1px solid var(--line);
+    }
+    .jv-btn-ghost:hover { background: #f2f5f2; }
+    .jv-btn-row { display: flex; gap: 10px; margin-top: 6px; }
+    .jv-btn-row .jv-btn { margin-top: 0; }
+
+    /* upload */
+    .jv-upload {
+      border: 2px dashed #cfe0c8; border-radius: 14px; padding: 20px 14px; text-align: center;
+      cursor: pointer; background: var(--bg-soft); transition: border-color .15s ease;
+    }
+    .jv-upload:hover { border-color: var(--brand); }
+    .jv-upload input[type=file] { display: none; }
+    .jv-upload-icon { font-size: 26px; color: var(--brand); margin-bottom: 6px; }
+    .jv-upload-text { font-size: 13.5px; color: var(--ink-soft); }
+    .jv-thumb { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--bg-soft); border-radius: 12px; margin-top: 8px; }
+    .jv-thumb img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; background: #fff; }
+    .jv-thumb .jv-thumb-name { font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .jv-thumb .jv-thumb-remove { color: var(--danger); font-size: 12px; font-weight: 600; cursor: pointer; background: none; border: none; }
+
+    /* account summary cards */
+    .jv-acct { display: flex; justify-content: space-between; align-items: center; padding: 14px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; }
+    .jv-acct-name { font-weight: 600; font-size: 14px; }
+    .jv-acct-num { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+    .jv-acct-bal { font-weight: 700; font-size: 15px; }
+    .jv-total { display: flex; justify-content: space-between; align-items: center; padding: 14px 4px 4px; border-top: 1px solid var(--line); margin-top: 4px; }
+    .jv-total-label { font-size: 13px; color: var(--ink-soft); font-weight: 600; }
+    .jv-total-val { font-size: 19px; font-weight: 800; color: var(--brand-dark); }
+
+    /* review */
+    .jv-review-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; gap: 12px; }
+    .jv-review-row:last-child { border-bottom: none; }
+    .jv-review-k { color: var(--ink-soft); }
+    .jv-review-v { font-weight: 600; text-align: right; }
+    .jv-check { color: var(--brand-dark); }
+    .jv-missing { color: var(--danger); }
+
+    .jv-loading, .jv-blocked { text-align: center; padding: 60px 10px; color: var(--ink-soft); font-size: 14px; }
+    .jv-spinner { width: 30px; height: 30px; border: 3px solid var(--line); border-top-color: var(--brand); border-radius: 50%; margin: 0 auto 14px; animation: jvspin .8s linear infinite; }
+    @keyframes jvspin { to { transform: rotate(360deg); } }
+
+    .jv-footer { text-align: center; margin-top: 22px; font-size: 12px; color: var(--ink-soft); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="jv-brand"><img src="/assets/img/logo.png" alt="Alliance Federal Credit Union"></div>
+    <div class="jv-progress" id="jv-progress" style="display:none;">
+      <div class="jv-progress-bar"><div class="jv-progress-fill" id="jv-progress-fill" style="width:0%;"></div></div>
+      <div class="jv-progress-label" id="jv-progress-label"></div>
+    </div>
+    <div class="jv-card" id="jv-card">
+      <div class="jv-loading"><div class="jv-spinner"></div>Loading your invitation…</div>
+    </div>
+    <div class="jv-footer">&copy; 2026 Alliance Federal Credit Union &middot; Member FDIC</div>
+  </div>
+  <script src="/js/invite.js"></script>
+</body>
+</html>
