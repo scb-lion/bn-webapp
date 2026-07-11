@@ -336,15 +336,19 @@ async function handleInvites(req, res, admin, users, invites) {
     const siteUrl = (settings.siteUrl || ('https://' + (req.headers.host || ''))).replace(/\/+$/, '');
     const link = siteUrl + '/join?token=' + token;
 
-    let emailed = false;
+    let emailed = false, emailError = '';
     try {
       const r = await sendJointInvite(spouseEmail, link, primaryNameOf(primary));
       emailed = !!(r && r.live);
+      if (!emailed) emailError = 'No live email sender is configured — the message was only previewed, not sent.';
     } catch (e) {
-      console.error('[admin/invites] send failed (non-fatal):', e && e.message);
+      // Surface the transport's reason (e.g. an SMTP bounce/rejection) to the
+      // admin instead of swallowing it — the invite is still created either way.
+      emailError = (e && e.message) || 'Send failed';
+      console.error('[admin/invites] send failed (non-fatal):', emailError);
     }
 
-    return json(res, 201, { ok: true, invite: inviteListItem(doc, primaryNameOf(primary)), emailed, link });
+    return json(res, 201, { ok: true, invite: inviteListItem(doc, primaryNameOf(primary)), emailed, emailError, link });
   }
 
   return json(res, 405, { error: 'Method not allowed' });

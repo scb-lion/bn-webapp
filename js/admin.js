@@ -460,7 +460,10 @@
       var link = data.link || '';
       el('e-joint-result').innerHTML =
         '<div style="margin-top:10px;padding:10px 12px;background:var(--muted);border-radius:var(--radius-sm);">' +
-          (data.emailed ? '<span class="pill ok">Email sent</span>' : '<span class="pill warn">Email not sent — share the link manually</span>') +
+          (data.emailed
+            ? '<span class="pill ok">Email sent</span>'
+            : '<span class="pill warn">Email not sent — share the link manually</span>' +
+              (data.emailError ? '<div class="muted" style="margin-top:6px;font-size:12px;line-height:17px;word-break:break-word;">Reason: ' + esc(data.emailError) + '</div>' : '')) +
           '<div class="row-flex" style="margin-top:8px;gap:8px;">' +
             '<input id="e-joint-link" type="text" readonly value="' + esc(link) + '" ' +
               'style="flex:1;height:36px;padding:0 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-size:12.5px;background:var(--card);">' +
